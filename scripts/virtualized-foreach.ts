@@ -23,10 +23,10 @@
             scrollHandler = () => {
                 scrollTop(element.parentElement.scrollTop);
                 console.log(scrollTop());
-    
+
                 scrollLeft(element.parentElement.scrollLeft);
                 console.log(scrollLeft());
-    
+
                 console.log(element.parentElement.clientHeight);
             };
             element.parentElement.addEventListener("scroll", scrollHandler);
@@ -57,47 +57,70 @@
     function getVisibleSubArray(element: HTMLElement, scrollTop: KnockoutObservable<number>, scrollLeft: KnockoutObservable<number>,
         rowHeight: number, columnWidth: number, visibleHeight: KnockoutObservable<number>, visibleWidth: KnockoutObservable<number>,
         array: any, orientation: string) {
-
+        
         console.log("c" + element.parentElement.clientHeight);
         const itemsOverplusCount = 3;
-        let startIndex = 0;
-        let visibleElementsCount: number;
+        const itemsOverplusBegin = Math.floor(itemsOverplusCount / 2);
+        const itemsOverplusEnd = itemsOverplusCount - itemsOverplusBegin;
         let arrayLength = array.length || 0;
+        let unitSize: number;
+        let scrollPosition: KnockoutObservable<number>;
+        let visibleSize: KnockoutObservable<number>;
+        let isHorizontalMode = orientation.toLowerCase() === 'horizontal';
 
-        if (orientation.toLowerCase() === 'horizontal') {
-            // TODO: calculate based on itemsOverplusCount
-            if (scrollLeft() > columnWidth) {
-                startIndex = Math.floor(scrollLeft() / columnWidth) - 1;
-            }
-            else {
-                startIndex = 0;
-            }
-            visibleElementsCount = Math.floor(visibleWidth() / columnWidth) + itemsOverplusCount;
-            if (visibleElementsCount + startIndex > arrayLength) {
-                visibleElementsCount = arrayLength - startIndex;
-            }
-            element.style.paddingLeft = startIndex * columnWidth + "px";
-            // element.style.paddingRight = (arrayLength - startIndex - visibleElementsCount) * columnWidth + "px";
-            element.style.width = arrayLength * columnWidth - startIndex * columnWidth + "px";
+        if (isHorizontalMode) {
+            unitSize = columnWidth;
+            scrollPosition = scrollLeft;
+            visibleSize = visibleWidth;
         }
         else {
-            // TODO: calculate based on itemsOverplusCount
-            if (scrollTop() > rowHeight) {
-                startIndex = Math.floor(scrollTop() / rowHeight) - 1;
+            unitSize = rowHeight;
+            scrollPosition = scrollTop;
+            visibleSize = visibleHeight;
+        }
+
+        let desiredSize = arrayLength * unitSize;
+
+        if (scrollPosition() > desiredSize) {
+            let endScrollPosition = desiredSize - visibleSize();
+            if (endScrollPosition < 0) {
+                endScrollPosition = 0;
+            }
+            if (isHorizontalMode) {
+                console.log(`Scrolled out of range, autoscrolling to: ${endScrollPosition}, ${element.parentElement.scrollTop}`);
+                element.parentElement.scrollLeft = endScrollPosition;
             }
             else {
-                startIndex = 0;
+                // alert(`Scrolled out of range, autoscrolling to: ${element.parentElement.scrollLeft}, ${1000}`)
+                element.parentElement.scrollTop = endScrollPosition;
             }
-            visibleElementsCount = Math.floor(visibleHeight() / rowHeight) + itemsOverplusCount;
-            if (visibleElementsCount + startIndex > arrayLength) {
-                visibleElementsCount = arrayLength - startIndex;
-            }
-            element.style.paddingTop = startIndex * rowHeight + "px";
-            element.style.paddingBottom = (arrayLength - startIndex - visibleElementsCount) * rowHeight + "px";
         }
+
+        // calculate startIndex        
+        let startIndex = Math.floor(scrollPosition() / unitSize) - itemsOverplusBegin;
+        let usedItemsOverplusBegin = itemsOverplusBegin;
+        if (startIndex < 0) {
+            usedItemsOverplusBegin = itemsOverplusBegin + startIndex;
+            startIndex = 0;
+        }
+        let visibleElementsCount = Math.floor(visibleSize() / unitSize);
+        let renderedElementsCount = visibleElementsCount + itemsOverplusEnd + usedItemsOverplusBegin;
+        if (renderedElementsCount + startIndex > arrayLength) {
+            renderedElementsCount = arrayLength - startIndex;
+        }
+
+        if (isHorizontalMode) {
+            element.style.paddingLeft = startIndex * columnWidth + "px";
+            element.style.width = desiredSize - startIndex * columnWidth + "px";
+        }
+        else {
+            element.style.paddingTop = startIndex * rowHeight + "px";
+            element.style.paddingBottom = (arrayLength - startIndex - renderedElementsCount) * rowHeight + "px";
+        }
+
         // alert(`startIndex:${startIndex()} visibleElementsCount:${visibleElementsCount} arrayLength:${arrayLength} visibleHeight:${visibleHeight} elementClientHeight:${element.clientHeight} elementChildren:${element.childElementCount}`);
-        if(Array.isArray(array)) {
-            return array.slice(startIndex, startIndex + visibleElementsCount);
+        if (Array.isArray(array)) {
+            return array.slice(startIndex, startIndex + renderedElementsCount);
         }
         return array;
     }

@@ -61,6 +61,7 @@
     <script type="text/javascript" src="scripts/data.js"></script>
 
 <input type="button" value="Add new" onclick="testViewModel.GridData.push({ Id: ko.observable(testViewModel.GridData().length), FirstName: ko.observable('a'), LastName: ko.observable('b')});" />
+<input type="button" value="Delete half" onclick="testViewModel.GridData(testViewModel.GridData().slice(0, testViewModel.GridData().length / 2));" />
 <input type="button" value="Delete all" onclick="testViewModel.GridData([]);" />
 <input type="button" value="Replace array with object" onclick="testViewModel.GridData({});" />
 </body>
