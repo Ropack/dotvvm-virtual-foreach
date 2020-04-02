@@ -1,5 +1,4 @@
 (function () {
-    var globarRef = null;
     ko.bindingHandlers["virtualized-foreach"] = {
         init: function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
             return ko.bindingHandlers['foreach']['init'](element, valueAccessor, allBindingsAccessor, viewModel, bindingContext);
@@ -13,25 +12,6 @@
             // get scroll values and handle scroll changes
             var scrollTop = ko.observable(element.parentElement.scrollTop);
             var scrollLeft = ko.observable(element.parentElement.scrollLeft);
-            // TRY #1
-            // function handleScroll() {
-            //     scrollTop(this.scrollTop);
-            //     console.log(scrollTop());
-            //     scrollLeft(this.scrollLeft);
-            //     console.log(scrollLeft());
-            //     console.log(this.clientHeight);
-            // };
-            // element.parentElement.removeEventListener("scroll", globarRef);
-            // globarRef = handleScroll;
-            // element.parentElement.addEventListener("scroll", globarRef);
-            // TRY #2
-            // function handleScroll(srollableWrapperElement: HTMLElement, scrollTopObservable: KnockoutObservable<number>) {
-            //     var scroll = srollableWrapperElement.scrollTop;
-            //     scrollTopObservable(scroll);
-            //     console.log(scroll);
-            //     console.log(srollableWrapperElement.clientHeight);
-            // };
-            // element.parentElement.addEventListener("scroll", () => handleScroll(element.parentElement, scrollTop));
             var scrollHandler = element.parentElement['dotvvmVirtualForeachScroll'];
             if (scrollHandler) {
                 element.parentElement.removeEventListener("scroll", scrollHandler);
@@ -45,10 +25,6 @@
             };
             element.parentElement.addEventListener("scroll", scrollHandler);
             element.parentElement['dotvvmVirtualForeachScroll'] = scrollHandler;
-            // TRY #3
-            //function handleScroll() ;
-            //let va=() => {return {scroll: handleScroll}};
-            //ko.bindingHandlers.event.init(element.parentElement, va, allBindingsAccessor, viewModel, bindingContext);
             // get size of element visible on display
             console.log("u" + element.parentElement.clientHeight);
             var visibleHeight = ko.observable(element.parentElement.clientHeight);
@@ -111,8 +87,8 @@
     /*
     - Mode = Vertical | Horizontal ✅
     - Na začátku zjistit defaultní padding boxu a připočítávat ho
-    - Správně reagovat na resize elementu ❓
-    - Ujistit se, že zásah do kolekce GridData nebo její nahrazení jinou kolekcí se propíše do komponenty
+    - Správně reagovat na resize elementu - timer
+    - Ujistit se, že zásah do kolekce GridData nebo její nahrazení jinou kolekcí se propíše do komponenty ✅
     - Ověřit, že se to chová dobře na mobilech
 
     Bonus
