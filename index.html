@@ -7,50 +7,54 @@
     <script type="text/javascript" src="lib/knockout-latest.debug.js"></script>
 
     <style type="text/css">
-        .virtualized-list {
-            border: solid 1px gray;
+        /* Component styles */
+        .virtualized-list-vertical {
             max-height: 500px;
             overflow-y: scroll;
         }
 
-        .card {
-            padding: 15px;
-            border: solid 1px gray;
+        .card-vertical {
             height: 145px;
             box-sizing: border-box;
         }
 
         .virtualized-list-horizontal {
-            border: solid 1px gray;
             max-width: 1500px;
-            height: 200px;
             overflow-x: scroll;
         }
 
         .card-horizontal {
             display: block;
             float: left;
-            padding: 15px;
-            border: solid 1px gray;
             width: 100px;
             box-sizing: border-box;
         }
+
+        /* Custom (user) styles */
+        .virtualized-list-custom {
+            border: solid 1px gray;
+        }
+        .card-custom {
+            padding: 15px;
+            border: solid 1px gray;
+        }
+
     </style>
 </head>
 <body>
     
-    <div class="virtualized-list">
+    <div class="virtualized-list-vertical virtualized-list-custom">
         <div data-bind="virtualized-foreach: GridData, virtualized-foreach-row-height: 145, virtualized-foreach-orientation: 'vertical'">
-            <div class="card">
+            <div class="card-vertical card-custom">
                 <h1 data-bind="text: Id"></h1>
                 <p data-bind="text: FirstName() + ' ' + LastName()"></p>
             </div>
         </div>
     </div>
 
-    <div class="virtualized-list-horizontal">
+    <div class="virtualized-list-horizontal virtualized-list-custom">
         <div data-bind="virtualized-foreach: GridData, virtualized-foreach-column-width: 100, virtualized-foreach-orientation: 'horizontal'">
-            <div class="card-horizontal">
+            <div class="card-horizontal card-custom">
                 <h1 data-bind="text: Id"></h1>
                 <p data-bind="text: FirstName() + ' ' + LastName()"></p>
             </div>
