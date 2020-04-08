@@ -4,6 +4,14 @@
             return ko.bindingHandlers['foreach']['init'](element, valueAccessor, allBindingsAccessor, viewModel, bindingContext);
         },
         update: function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
+            function addOrReplaceEventListener(element, eventName, handler, id) {
+                var existingHandler = element[id];
+                if (existingHandler) {
+                    element.removeEventListener(eventName, existingHandler);
+                }
+                element.addEventListener(eventName, handler);
+                element['dotvvmVirtualForeachScroll'] = handler;
+            }
             var array = ko.unwrap(valueAccessor());
             // get parameters
             var rowHeight = allBindingsAccessor.get("virtualized-foreach-row-height") || 0;
@@ -12,23 +20,42 @@
             // get scroll values and handle scroll changes
             var scrollTop = ko.observable(element.parentElement.scrollTop);
             var scrollLeft = ko.observable(element.parentElement.scrollLeft);
-            var scrollHandler = element.parentElement['dotvvmVirtualForeachScroll'];
-            if (scrollHandler) {
-                element.parentElement.removeEventListener("scroll", scrollHandler);
-            }
-            scrollHandler = function () {
-                scrollTop(element.parentElement.scrollTop);
+            var windowScrollHandler = function () {
+                scrollTop(this.scrollY);
                 console.log(scrollTop());
-                scrollLeft(element.parentElement.scrollLeft);
+                scrollLeft(this.scrollX);
                 console.log(scrollLeft());
-                console.log(element.parentElement.clientHeight);
             };
-            element.parentElement.addEventListener("scroll", scrollHandler);
-            element.parentElement['dotvvmVirtualForeachScroll'] = scrollHandler;
+            var elementScrollHandler = function () {
+                scrollTop(this.scrollTop);
+                console.log(scrollTop());
+                scrollLeft(this.scrollLeft);
+                console.log(scrollLeft());
+                console.log(this.clientHeight);
+            };
+            addOrReplaceEventListener(element.parentElement, "scroll", elementScrollHandler, 'dotvvmVirtualForeachScroll');
+            addOrReplaceEventListener(window, "scroll", windowScrollHandler, 'dotvvmVirtualForeachScroll');
             // get size of element visible on display
             console.log("u" + element.parentElement.clientHeight);
-            var visibleHeight = ko.observable(element.parentElement.clientHeight);
-            var visibleWidth = ko.observable(element.parentElement.clientWidth);
+            var visibleElementHeight = ko.observable(element.parentElement.clientHeight);
+            var visibleElementWidth = ko.observable(element.parentElement.clientWidth);
+            var visibleHeight = ko.computed(function () {
+                if (visibleElementHeight() < window.innerHeight) {
+                    console.log("Returned window height:" + window.innerHeight);
+                    return window.innerHeight;
+                }
+                else {
+                    return visibleElementHeight();
+                }
+            });
+            var visibleWidth = ko.computed(function () {
+                if (visibleElementWidth() < window.innerWidth) {
+                    return window.innerWidth;
+                }
+                else {
+                    return visibleElementWidth();
+                }
+            });
             // create sub array and calculate paddings
             var visibleArray = ko.computed(function () { return getVisibleSubArray(element, scrollTop, scrollLeft, rowHeight, columnWidth, visibleHeight, visibleWidth, array, orientation); });
             // alert("update");
@@ -36,8 +63,8 @@
             var foreachResult = ko.bindingHandlers['foreach']['update'](element, function () { return visibleArray; }, allBindingsAccessor, viewModel, bindingContext);
             // update size of element visible on display (before foreach binding creatating it was 0)
             console.log("a" + element.parentElement.clientHeight);
-            visibleHeight(element.parentElement.clientHeight);
-            visibleWidth(element.parentElement.clientWidth);
+            visibleElementHeight(element.parentElement.clientHeight);
+            visibleElementWidth(element.parentElement.clientWidth);
             return foreachResult;
         }
     };
@@ -107,10 +134,13 @@
     - Na začátku zjistit defaultní padding boxu a připočítávat ho
     - Správně reagovat na resize elementu - timer
     - Ujistit se, že zásah do kolekce GridData nebo její nahrazení jinou kolekcí se propíše do komponenty ✅
-    - Ověřit, že se to chová dobře na mobilech
+    - Ověřit, že se to chová dobře na mobilech ✅
 
     Bonus
     - Změřit si zobrazené elementy a zařídit se podle toho
+
+
+    - Přidat podporu pro virzualizaci při scrollování celé stránky
 
 
     */
