@@ -9,7 +9,7 @@
     <style type="text/css">
         /* Component styles */
         .virtualized-list-vertical {
-            max-height: 500px;
+            max-height: 1500px;
             overflow-y: scroll;
         }
 
@@ -19,7 +19,7 @@
         }
 
         .virtualized-list-horizontal {
-            max-width: 1500px;
+            max-width: 2400px;
             overflow-x: scroll;
         }
 
@@ -34,6 +34,10 @@
         .virtualized-list-custom {
             border: solid 1px gray;
         }
+        .virtualized-list-vertical-custom {
+            width: 1000px;
+            margin-top: 500px;
+        }
         .card-custom {
             padding: 15px;
             border: solid 1px gray;
@@ -43,7 +47,7 @@
 </head>
 <body>
     
-    <div class="virtualized-list-vertical virtualized-list-custom">
+    <div class="virtualized-list-vertical virtualized-list-custom virtualized-list-vertical-custom">
         <div data-bind="virtualized-foreach: GridData, virtualized-foreach-row-height: 145, virtualized-foreach-orientation: 'vertical'">
             <div class="card-vertical card-custom">
                 <h1 data-bind="text: Id"></h1>
@@ -60,6 +64,8 @@
             </div>
         </div>
     </div>
+
+    <div style="height: 2000px;"></div>
     
     <script type="text/javascript" src="scripts/virtualized-foreach.js"></script>
     <script type="text/javascript" src="scripts/data.js"></script>

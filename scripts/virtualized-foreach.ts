@@ -1,17 +1,23 @@
-﻿(function () {
+﻿interface ScrollInfo {
+    elementScrollTop: KnockoutObservable<number>;
+    elementScrollLeft: KnockoutObservable<number>;
+    windowScrollTop: KnockoutObservable<number>;
+    windowScrollLeft: KnockoutObservable<number>;
+}
+(function () {
     ko.bindingHandlers["virtualized-foreach"] = {
         init(element: HTMLElement, valueAccessor: () => any, allBindingsAccessor: KnockoutAllBindingsAccessor, viewModel: any, bindingContext: KnockoutBindingContext) {
 
             return ko.bindingHandlers['foreach']['init'](element, valueAccessor, allBindingsAccessor, viewModel, bindingContext);
         },
         update(element: HTMLElement, valueAccessor: () => any, allBindingsAccessor: KnockoutAllBindingsAccessor, viewModel: any, bindingContext: KnockoutBindingContext) {
-            function addOrReplaceEventListener<K extends keyof HTMLElementEventMap>(element: any, eventName: K, handler: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, id: string) {
+            function addOrReplaceEventListener<K extends keyof HTMLElementEventMap>(element: HTMLElement, eventName: K, handler: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, eventTarget: any, id: string) {
                 let existingHandler = element[id];
                 if (existingHandler) {
-                    element.removeEventListener(eventName, existingHandler);
+                    eventTarget.removeEventListener(eventName, existingHandler);
                 }
-                element.addEventListener(eventName, handler);
-                element['dotvvmVirtualForeachScroll'] = handler;
+                eventTarget.addEventListener(eventName, handler);
+                element[id] = handler;
             }
 
             let array = ko.unwrap(valueAccessor());
@@ -19,29 +25,32 @@
             let rowHeight = allBindingsAccessor.get("virtualized-foreach-row-height") || 0;
             let columnWidth = allBindingsAccessor.get("virtualized-foreach-column-width") || 0;
             let orientation = allBindingsAccessor.get("virtualized-foreach-orientation") || 'vertical';
+            let isHorizontalMode = orientation.toLowerCase() === 'horizontal';
+
+            console.log(`Calling v-foreach update with params: rowHeight=${rowHeight}, columnWidth=${columnWidth}, orientation=${orientation}`);
+
+            let elementPosition = ko.observable(element.parentElement.getBoundingClientRect());
 
             // get scroll values and handle scroll changes
-            let scrollTop = ko.observable(element.parentElement.scrollTop);
-            let scrollLeft = ko.observable(element.parentElement.scrollLeft);
+            let scrollInfo = {
+                elementScrollTop: ko.observable(element.parentElement.scrollTop),
+                elementScrollLeft: ko.observable(element.parentElement.scrollLeft),
+                windowScrollTop: ko.observable(window.scrollY),
+                windowScrollLeft: ko.observable(window.scrollX)
+            }
 
             let windowScrollHandler = function () {
-                scrollTop(this.scrollY);
-                console.log(scrollTop());
-
-                scrollLeft(this.scrollX);
-                console.log(scrollLeft());
+                console.log(`Window has been scrolled. Updating scroll values: top=${this.scrollY}, left=${this.scrollX}`);
+                scrollInfo.windowScrollTop(this.scrollY);
+                scrollInfo.windowScrollLeft(this.scrollX);
             };
             let elementScrollHandler = function () {
-                scrollTop(this.scrollTop);
-                console.log(scrollTop());
-
-                scrollLeft(this.scrollLeft);
-                console.log(scrollLeft());
-
-                console.log(this.clientHeight);
+                console.log(`Element has been scrolled. Updating scroll values: top=${this.scrollTop}, left=${this.scrollLeft}`);
+                scrollInfo.elementScrollTop(this.scrollTop);
+                scrollInfo.elementScrollLeft(this.scrollLeft);
             };
-            addOrReplaceEventListener(element.parentElement, "scroll", elementScrollHandler, 'dotvvmVirtualForeachScroll');
-            addOrReplaceEventListener(window, "scroll", windowScrollHandler, 'dotvvmVirtualForeachScroll');
+            addOrReplaceEventListener(element.parentElement, "scroll", elementScrollHandler, element.parentElement, 'dotvvmVirtualForeachScrollElement');
+            addOrReplaceEventListener(element.parentElement, "scroll", windowScrollHandler, window, 'dotvvmVirtualForeachScrollWindow');
 
             // get size of element visible on display
             console.log("u" + element.parentElement.clientHeight);
@@ -66,7 +75,7 @@
             });
 
             // create sub array and calculate paddings
-            let visibleArray = ko.computed(() => getVisibleSubArray(element, scrollTop, scrollLeft, rowHeight, columnWidth, visibleHeight, visibleWidth, array, orientation));
+            let visibleArray = ko.computed(() => getVisibleSubArray(element, scrollInfo, rowHeight, columnWidth, elementPosition, visibleHeight, visibleWidth, array, isHorizontalMode));
 
             // alert("update");
 
@@ -82,29 +91,37 @@
         }
     }
 
-    function getVisibleSubArray(element: HTMLElement, scrollTop: KnockoutObservable<number>, scrollLeft: KnockoutObservable<number>,
-        rowHeight: number, columnWidth: number, visibleHeight: KnockoutObservable<number>, visibleWidth: KnockoutObservable<number>,
-        array: any, orientation: string) {
+    function getVisibleSubArray(element: HTMLElement, scrollInfo: ScrollInfo, rowHeight: number, columnWidth: number,
+        elementPositionRect: KnockoutObservable<DOMRect>, visibleHeight: KnockoutObservable<number>, visibleWidth: KnockoutObservable<number>,
+        array: any, isHorizontalMode: boolean) {
 
-        console.log("c" + element.parentElement.clientHeight);
+        console.log(`Recalculating array (horizontal=${isHorizontalMode})`);
         const itemsOverplusCount = 3;
         const itemsOverplusBegin = Math.floor(itemsOverplusCount / 2);
         const itemsOverplusEnd = itemsOverplusCount - itemsOverplusBegin;
         let arrayLength = array.length || 0;
         let unitSize: number;
         let scrollPosition: KnockoutObservable<number>;
+        let windowScrollPosition: KnockoutObservable<number>;
+        let windowSize: number;
         let visibleSize: KnockoutObservable<number>;
-        let isHorizontalMode = orientation.toLowerCase() === 'horizontal';
+        let elementPosition : number;
 
         if (isHorizontalMode) {
             unitSize = columnWidth;
-            scrollPosition = scrollLeft;
+            scrollPosition = scrollInfo.elementScrollLeft;
+            windowScrollPosition = scrollInfo.windowScrollLeft;
             visibleSize = visibleWidth;
+            elementPosition = elementPositionRect().left;
+            windowSize = window.innerWidth;
         }
         else {
             unitSize = rowHeight;
-            scrollPosition = scrollTop;
+            scrollPosition = scrollInfo.elementScrollTop;
+            windowScrollPosition = scrollInfo.windowScrollTop;
             visibleSize = visibleHeight;
+            elementPosition = elementPositionRect().top;
+            windowSize = window.innerHeight;
         }
 
         let desiredSize = arrayLength * unitSize;
@@ -115,7 +132,7 @@
                 endScrollPosition = 0;
             }
             if (isHorizontalMode) {
-                console.log(`Scrolled out of range, autoscrolling to: ${endScrollPosition}, ${element.parentElement.scrollTop}`);
+                console.warn(`Scrolled out of range, autoscrolling to: ${endScrollPosition}, ${element.parentElement.scrollTop}`);
                 element.parentElement.scrollLeft = endScrollPosition;
             }
             else {
@@ -124,17 +141,32 @@
             }
         }
 
-        // calculate startIndex        
-        let startIndex = Math.floor(scrollPosition() / unitSize) - itemsOverplusBegin;
-        let usedItemsOverplusBegin = itemsOverplusBegin;
+        // calculate startIndex     
+        let startPosition = scrollPosition() + windowScrollPosition() - elementPosition;
+        let startIndex = Math.floor(startPosition / unitSize) - itemsOverplusBegin;
+        // let usedItemsOverplusBegin = itemsOverplusBegin;
         if (startIndex < 0) {
-            usedItemsOverplusBegin = itemsOverplusBegin + startIndex;
+            // usedItemsOverplusBegin = itemsOverplusBegin + startIndex;
             startIndex = 0;
         }
-        let visibleElementsCount = Math.floor(visibleSize() / unitSize);
-        let renderedElementsCount = visibleElementsCount + itemsOverplusEnd + usedItemsOverplusBegin;
-        if (renderedElementsCount + startIndex > arrayLength) {
-            renderedElementsCount = arrayLength - startIndex;
+
+        let endPosition : number;
+        let displayableElementSize = visibleSize() + elementPosition - windowScrollPosition();
+        if(displayableElementSize > windowSize) {
+            endPosition = startPosition + windowSize;
+        }
+        else {
+            endPosition = startPosition + displayableElementSize;
+        }
+        let endIndex = Math.floor(endPosition / unitSize) + itemsOverplusEnd;
+
+        // let visibleElementsCount = Math.floor(visibleSize() / unitSize);
+        // let renderedElementsCount = visibleElementsCount + itemsOverplusEnd + usedItemsOverplusBegin;
+        // if (renderedElementsCount + startIndex > arrayLength) {
+        //     renderedElementsCount = arrayLength - startIndex;
+        // }
+        if (endIndex >= arrayLength) {
+            endIndex = arrayLength - 1;
         }
 
         if (isHorizontalMode) {
@@ -143,12 +175,14 @@
         }
         else {
             element.style.paddingTop = startIndex * rowHeight + "px";
-            element.style.paddingBottom = (arrayLength - startIndex - renderedElementsCount) * rowHeight + "px";
+            element.style.paddingBottom = (arrayLength - endIndex - 1) * rowHeight + "px";
         }
 
         // alert(`startIndex:${startIndex()} visibleElementsCount:${visibleElementsCount} arrayLength:${arrayLength} visibleHeight:${visibleHeight} elementClientHeight:${element.clientHeight} elementChildren:${element.childElementCount}`);
         if (Array.isArray(array)) {
-            return array.slice(startIndex, startIndex + renderedElementsCount);
+            // let endIndex = startIndex + renderedElementsCount;
+            console.log(`Returning subarray within indexes ${startIndex} and ${endIndex}.`)
+            return array.slice(startIndex, endIndex + 1);
         }
         return array;
     }
