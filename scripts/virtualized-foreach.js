@@ -5,12 +5,25 @@
         },
         update: function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
             function addOrReplaceEventListener(element, eventName, handler, eventTarget, id) {
-                var existingHandler = element[id];
+                var existingHandler = removeObjectById(element, id);
                 if (existingHandler) {
                     eventTarget.removeEventListener(eventName, existingHandler);
                 }
                 eventTarget.addEventListener(eventName, handler);
                 element[id] = handler;
+            }
+            function setOrReplaceInterval(element, id, handler, timeout) {
+                var existingInterval = removeObjectById(element, id);
+                if (existingInterval) {
+                    clearInterval(existingInterval);
+                }
+                var i = setInterval(handler, timeout);
+                element[id] = i;
+            }
+            function removeObjectById(storageElement, id) {
+                var existingHandler = storageElement[id];
+                storageElement[id] = undefined;
+                return existingHandler;
             }
             var array = ko.unwrap(valueAccessor());
             // get parameters
@@ -44,6 +57,17 @@
             console.log("u" + element.parentElement.clientHeight);
             var visibleElementHeight = ko.observable(element.parentElement.clientHeight);
             var visibleElementWidth = ko.observable(element.parentElement.clientWidth);
+            // react to element resize
+            var elementResizeHandler = function () {
+                console.log("Checking element size");
+                if (visibleElementHeight() != element.parentElement.clientHeight) {
+                    visibleElementHeight(element.parentElement.clientHeight);
+                }
+                if (visibleElementWidth() != element.parentElement.clientWidth) {
+                    visibleElementWidth(element.parentElement.clientWidth);
+                }
+            };
+            setOrReplaceInterval(element, "dotvvmVirtualForeachElementResizeInterval", elementResizeHandler, 1000);
             // create sub array and calculate paddings
             var visibleArray = ko.computed(function () { return getVisibleSubArray(element, scrollInfo, rowHeight, columnWidth, elementPosition, visibleElementHeight, visibleElementWidth, array, isHorizontalMode); });
             // alert("update");
@@ -64,14 +88,12 @@
         var arrayLength = array.length || 0;
         var unitSize;
         var scrollPosition;
-        // let windowScrollPosition: KnockoutObservable<number>;
         var windowSize;
         var visibleSize;
         var elementPosition;
         if (isHorizontalMode) {
             unitSize = columnWidth;
             scrollPosition = scrollInfo.elementScrollLeft;
-            // windowScrollPosition = scrollInfo.windowScrollLeft;
             visibleSize = visibleWidth;
             elementPosition = elementPositionRect().left;
             windowSize = window.innerWidth;
@@ -79,7 +101,6 @@
         else {
             unitSize = rowHeight;
             scrollPosition = scrollInfo.elementScrollTop;
-            // windowScrollPosition = scrollInfo.windowScrollTop;
             visibleSize = visibleHeight;
             elementPosition = elementPositionRect().top;
             windowSize = window.innerHeight;
@@ -134,7 +155,6 @@
         }
         // alert(`startIndex:${startIndex()} visibleElementsCount:${visibleElementsCount} arrayLength:${arrayLength} visibleHeight:${visibleHeight} elementClientHeight:${element.clientHeight} elementChildren:${element.childElementCount}`);
         if (Array.isArray(array)) {
-            // let endIndex = startIndex + renderedElementsCount;
             console.log("Returning subarray within indexes " + startIndex + " and " + endIndex + ".");
             return array.slice(startIndex, endIndex + 1);
         }
@@ -143,7 +163,7 @@
     /*
     - Mode = Vertical | Horizontal ✅
     - Na začátku zjistit defaultní padding boxu a připočítávat ho
-    - Správně reagovat na resize elementu - timer
+    - Správně reagovat na resize elementu - timer ✅
     - Ujistit se, že zásah do kolekce GridData nebo její nahrazení jinou kolekcí se propíše do komponenty ✅
     - Ověřit, že se to chová dobře na mobilech ✅
 

@@ -12,12 +12,25 @@
         },
         update(element: HTMLElement, valueAccessor: () => any, allBindingsAccessor: KnockoutAllBindingsAccessor, viewModel: any, bindingContext: KnockoutBindingContext) {
             function addOrReplaceEventListener<K extends keyof HTMLElementEventMap>(element: HTMLElement, eventName: K, handler: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, eventTarget: any, id: string) {
-                let existingHandler = element[id];
+                let existingHandler = removeObjectById(element, id);
                 if (existingHandler) {
                     eventTarget.removeEventListener(eventName, existingHandler);
                 }
                 eventTarget.addEventListener(eventName, handler);
                 element[id] = handler;
+            }
+            function setOrReplaceInterval(element: HTMLElement, id: string, handler: () => any, timeout: number) {
+                let existingInterval = removeObjectById(element, id);
+                if(existingInterval) {
+                    clearInterval(existingInterval)
+                }
+                let i = setInterval(handler, timeout);
+                element[id] = i;
+            }
+            function removeObjectById(storageElement: any, id: string) {
+                let existingHandler = storageElement[id];
+                storageElement[id] = undefined;
+                return existingHandler;
             }
 
             let array = ko.unwrap(valueAccessor());
@@ -58,6 +71,18 @@
             let visibleElementHeight = ko.observable(element.parentElement.clientHeight);
             let visibleElementWidth = ko.observable(element.parentElement.clientWidth);
 
+            // react to element resize
+            let elementResizeHandler = function() {
+                console.log("Checking element size")
+                if(visibleElementHeight() != element.parentElement.clientHeight) {
+                    visibleElementHeight(element.parentElement.clientHeight)
+                }
+                if(visibleElementWidth() != element.parentElement.clientWidth) {
+                    visibleElementWidth(element.parentElement.clientWidth)
+                }
+            };
+            setOrReplaceInterval(element, "dotvvmVirtualForeachElementResizeInterval", elementResizeHandler, 1000);
+
             // create sub array and calculate paddings
             let visibleArray = ko.computed(() => getVisibleSubArray(element, scrollInfo, rowHeight, columnWidth, elementPosition, visibleElementHeight, visibleElementWidth, array, isHorizontalMode));
 
@@ -86,7 +111,6 @@
         let arrayLength = array.length || 0;
         let unitSize: number;
         let scrollPosition: KnockoutObservable<number>;
-        // let windowScrollPosition: KnockoutObservable<number>;
         let windowSize: number;
         let visibleSize: KnockoutObservable<number>;
         let elementPosition : number;
@@ -94,7 +118,6 @@
         if (isHorizontalMode) {
             unitSize = columnWidth;
             scrollPosition = scrollInfo.elementScrollLeft;
-            // windowScrollPosition = scrollInfo.windowScrollLeft;
             visibleSize = visibleWidth;
             elementPosition = elementPositionRect().left;
             windowSize = window.innerWidth;
@@ -102,7 +125,6 @@
         else {
             unitSize = rowHeight;
             scrollPosition = scrollInfo.elementScrollTop;
-            // windowScrollPosition = scrollInfo.windowScrollTop;
             visibleSize = visibleHeight;
             elementPosition = elementPositionRect().top;
             windowSize = window.innerHeight;
@@ -164,7 +186,6 @@
 
         // alert(`startIndex:${startIndex()} visibleElementsCount:${visibleElementsCount} arrayLength:${arrayLength} visibleHeight:${visibleHeight} elementClientHeight:${element.clientHeight} elementChildren:${element.childElementCount}`);
         if (Array.isArray(array)) {
-            // let endIndex = startIndex + renderedElementsCount;
             console.log(`Returning subarray within indexes ${startIndex} and ${endIndex}.`)
             return array.slice(startIndex, endIndex + 1);
         }
@@ -174,7 +195,7 @@
     /*
     - Mode = Vertical | Horizontal ✅
     - Na začátku zjistit defaultní padding boxu a připočítávat ho
-    - Správně reagovat na resize elementu - timer
+    - Správně reagovat na resize elementu - timer ✅
     - Ujistit se, že zásah do kolekce GridData nebo její nahrazení jinou kolekcí se propíše do komponenty ✅
     - Ověřit, že se to chová dobře na mobilech ✅
 
