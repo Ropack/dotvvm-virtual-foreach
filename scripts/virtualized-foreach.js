@@ -26,6 +26,15 @@
                 return existingHandler;
             }
             var array = ko.unwrap(valueAccessor());
+            if (Array.isArray(array)) {
+            }
+            else if (Array.isArray(array.data())) {
+                array = array.data();
+            }
+            else {
+                console.warn("Array was not recognized by virtualized-foreach binding, falling back to regular foreach.");
+                return ko.bindingHandlers['foreach']['update'](element, function () { return array; }, allBindingsAccessor, viewModel, bindingContext);
+            }
             // get parameters
             var rowHeight = allBindingsAccessor.get("virtualized-foreach-row-height") || 0;
             var columnWidth = allBindingsAccessor.get("virtualized-foreach-column-width") || 0;
@@ -70,11 +79,9 @@
             setOrReplaceInterval(element, "dotvvmVirtualForeachElementResizeInterval", elementResizeHandler, 1000);
             // create sub array and calculate paddings
             var visibleArray = ko.computed(function () { return getVisibleSubArray(element, scrollInfo, rowHeight, columnWidth, elementPosition, visibleElementHeight, visibleElementWidth, array, isHorizontalMode); });
-            // alert("update");
             // create foreach binding with only subarray items
             var foreachResult = ko.bindingHandlers['foreach']['update'](element, function () { return visibleArray; }, allBindingsAccessor, viewModel, bindingContext);
             // update size of element visible on display (before foreach binding creatating it was 0)
-            console.log("a" + element.parentElement.clientHeight);
             visibleElementHeight(element.parentElement.clientHeight);
             visibleElementWidth(element.parentElement.clientWidth);
             return foreachResult;
@@ -153,12 +160,8 @@
             element.style.paddingTop = startIndex * rowHeight + "px";
             element.style.paddingBottom = (arrayLength - endIndex - 1) * rowHeight + "px";
         }
-        // alert(`startIndex:${startIndex()} visibleElementsCount:${visibleElementsCount} arrayLength:${arrayLength} visibleHeight:${visibleHeight} elementClientHeight:${element.clientHeight} elementChildren:${element.childElementCount}`);
-        if (Array.isArray(array)) {
-            console.log("Returning subarray within indexes " + startIndex + " and " + endIndex + ".");
-            return array.slice(startIndex, endIndex + 1);
-        }
-        return array;
+        console.log("Returning subarray within indexes " + startIndex + " and " + endIndex + ".");
+        return array.slice(startIndex, endIndex + 1);
     }
     /*
     - Mode = Vertical | Horizontal ✅
