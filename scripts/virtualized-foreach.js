@@ -118,9 +118,7 @@
         // calculate startIndex     
         var startPosition = scrollPosition() + windowScrollPosition() - elementPosition;
         var startIndex = Math.floor(startPosition / unitSize) - itemsOverplusBegin;
-        // let usedItemsOverplusBegin = itemsOverplusBegin;
         if (startIndex < 0) {
-            // usedItemsOverplusBegin = itemsOverplusBegin + startIndex;
             startIndex = 0;
         }
         var endPosition;
@@ -132,11 +130,6 @@
             endPosition = startPosition + displayableElementSize;
         }
         var endIndex = Math.floor(endPosition / unitSize) + itemsOverplusEnd;
-        // let visibleElementsCount = Math.floor(visibleSize() / unitSize);
-        // let renderedElementsCount = visibleElementsCount + itemsOverplusEnd + usedItemsOverplusBegin;
-        // if (renderedElementsCount + startIndex > arrayLength) {
-        //     renderedElementsCount = arrayLength - startIndex;
-        // }
         if (endIndex >= arrayLength) {
             endIndex = arrayLength - 1;
         }
@@ -167,7 +160,7 @@
     - Změřit si zobrazené elementy a zařídit se podle toho
 
 
-    - Přidat podporu pro virzualizaci při scrollování celé stránky
+    - Přidat podporu pro virzualizaci při scrollování celé stránky ✅
 
 
     */
