@@ -43,6 +43,7 @@
                 console.log(`Window has been scrolled. Updating scroll values: top=${this.scrollY}, left=${this.scrollX}`);
                 scrollInfo.windowScrollTop(this.scrollY);
                 scrollInfo.windowScrollLeft(this.scrollX);
+                elementPosition(element.parentElement.getBoundingClientRect());
             };
             let elementScrollHandler = function () {
                 console.log(`Element has been scrolled. Updating scroll values: top=${this.scrollTop}, left=${this.scrollLeft}`);
@@ -56,26 +57,9 @@
             console.log("u" + element.parentElement.clientHeight);
             let visibleElementHeight = ko.observable(element.parentElement.clientHeight);
             let visibleElementWidth = ko.observable(element.parentElement.clientWidth);
-            let visibleHeight = ko.computed(() => {
-                if (visibleElementHeight() < window.innerHeight) {
-                    console.log("Returned window height:"+window.innerHeight);
-                    return window.innerHeight;
-                }
-                else {
-                    return visibleElementHeight();
-                }
-            });
-            let visibleWidth = ko.computed(() => {
-                if (visibleElementWidth() < window.innerWidth) {
-                    return window.innerWidth;
-                }
-                else {
-                    return visibleElementWidth();
-                }
-            });
 
             // create sub array and calculate paddings
-            let visibleArray = ko.computed(() => getVisibleSubArray(element, scrollInfo, rowHeight, columnWidth, elementPosition, visibleHeight, visibleWidth, array, isHorizontalMode));
+            let visibleArray = ko.computed(() => getVisibleSubArray(element, scrollInfo, rowHeight, columnWidth, elementPosition, visibleElementHeight, visibleElementWidth, array, isHorizontalMode));
 
             // alert("update");
 
@@ -102,7 +86,7 @@
         let arrayLength = array.length || 0;
         let unitSize: number;
         let scrollPosition: KnockoutObservable<number>;
-        let windowScrollPosition: KnockoutObservable<number>;
+        // let windowScrollPosition: KnockoutObservable<number>;
         let windowSize: number;
         let visibleSize: KnockoutObservable<number>;
         let elementPosition : number;
@@ -110,7 +94,7 @@
         if (isHorizontalMode) {
             unitSize = columnWidth;
             scrollPosition = scrollInfo.elementScrollLeft;
-            windowScrollPosition = scrollInfo.windowScrollLeft;
+            // windowScrollPosition = scrollInfo.windowScrollLeft;
             visibleSize = visibleWidth;
             elementPosition = elementPositionRect().left;
             windowSize = window.innerWidth;
@@ -118,7 +102,7 @@
         else {
             unitSize = rowHeight;
             scrollPosition = scrollInfo.elementScrollTop;
-            windowScrollPosition = scrollInfo.windowScrollTop;
+            // windowScrollPosition = scrollInfo.windowScrollTop;
             visibleSize = visibleHeight;
             elementPosition = elementPositionRect().top;
             windowSize = window.innerHeight;
@@ -141,20 +125,27 @@
             }
         }
 
-        // calculate startIndex     
-        let startPosition = scrollPosition() + windowScrollPosition() - elementPosition;
+        // calculate startIndex
+        let startPosition = scrollPosition();
+        let endPosition = 0;
+        if(elementPosition < 0) {
+            startPosition -= elementPosition;
+        }
         let startIndex = Math.floor(startPosition / unitSize) - itemsOverplusBegin;
         if (startIndex < 0) {
             startIndex = 0;
+            startPosition = 0;
         }
 
-        let endPosition : number;
-        let displayableElementSize = visibleSize() + elementPosition - windowScrollPosition();
+        let displayableElementSize = visibleSize() + elementPosition;
         if(displayableElementSize > windowSize) {
-            endPosition = startPosition + windowSize;
+            endPosition += startPosition + windowSize;
+            if(elementPosition > 0) {
+                endPosition -= elementPosition;
+            }
         }
         else {
-            endPosition = startPosition + displayableElementSize;
+            endPosition += startPosition + displayableElementSize;
         }
         let endIndex = Math.floor(endPosition / unitSize) + itemsOverplusEnd;
 

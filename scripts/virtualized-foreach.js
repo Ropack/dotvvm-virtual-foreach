@@ -31,6 +31,7 @@
                 console.log("Window has been scrolled. Updating scroll values: top=" + this.scrollY + ", left=" + this.scrollX);
                 scrollInfo.windowScrollTop(this.scrollY);
                 scrollInfo.windowScrollLeft(this.scrollX);
+                elementPosition(element.parentElement.getBoundingClientRect());
             };
             var elementScrollHandler = function () {
                 console.log("Element has been scrolled. Updating scroll values: top=" + this.scrollTop + ", left=" + this.scrollLeft);
@@ -43,25 +44,8 @@
             console.log("u" + element.parentElement.clientHeight);
             var visibleElementHeight = ko.observable(element.parentElement.clientHeight);
             var visibleElementWidth = ko.observable(element.parentElement.clientWidth);
-            var visibleHeight = ko.computed(function () {
-                if (visibleElementHeight() < window.innerHeight) {
-                    console.log("Returned window height:" + window.innerHeight);
-                    return window.innerHeight;
-                }
-                else {
-                    return visibleElementHeight();
-                }
-            });
-            var visibleWidth = ko.computed(function () {
-                if (visibleElementWidth() < window.innerWidth) {
-                    return window.innerWidth;
-                }
-                else {
-                    return visibleElementWidth();
-                }
-            });
             // create sub array and calculate paddings
-            var visibleArray = ko.computed(function () { return getVisibleSubArray(element, scrollInfo, rowHeight, columnWidth, elementPosition, visibleHeight, visibleWidth, array, isHorizontalMode); });
+            var visibleArray = ko.computed(function () { return getVisibleSubArray(element, scrollInfo, rowHeight, columnWidth, elementPosition, visibleElementHeight, visibleElementWidth, array, isHorizontalMode); });
             // alert("update");
             // create foreach binding with only subarray items
             var foreachResult = ko.bindingHandlers['foreach']['update'](element, function () { return visibleArray; }, allBindingsAccessor, viewModel, bindingContext);
@@ -80,14 +64,14 @@
         var arrayLength = array.length || 0;
         var unitSize;
         var scrollPosition;
-        var windowScrollPosition;
+        // let windowScrollPosition: KnockoutObservable<number>;
         var windowSize;
         var visibleSize;
         var elementPosition;
         if (isHorizontalMode) {
             unitSize = columnWidth;
             scrollPosition = scrollInfo.elementScrollLeft;
-            windowScrollPosition = scrollInfo.windowScrollLeft;
+            // windowScrollPosition = scrollInfo.windowScrollLeft;
             visibleSize = visibleWidth;
             elementPosition = elementPositionRect().left;
             windowSize = window.innerWidth;
@@ -95,7 +79,7 @@
         else {
             unitSize = rowHeight;
             scrollPosition = scrollInfo.elementScrollTop;
-            windowScrollPosition = scrollInfo.windowScrollTop;
+            // windowScrollPosition = scrollInfo.windowScrollTop;
             visibleSize = visibleHeight;
             elementPosition = elementPositionRect().top;
             windowSize = window.innerHeight;
@@ -115,19 +99,26 @@
                 element.parentElement.scrollTop = endScrollPosition;
             }
         }
-        // calculate startIndex     
-        var startPosition = scrollPosition() + windowScrollPosition() - elementPosition;
+        // calculate startIndex
+        var startPosition = scrollPosition();
+        var endPosition = 0;
+        if (elementPosition < 0) {
+            startPosition -= elementPosition;
+        }
         var startIndex = Math.floor(startPosition / unitSize) - itemsOverplusBegin;
         if (startIndex < 0) {
             startIndex = 0;
+            startPosition = 0;
         }
-        var endPosition;
-        var displayableElementSize = visibleSize() + elementPosition - windowScrollPosition();
+        var displayableElementSize = visibleSize() + elementPosition;
         if (displayableElementSize > windowSize) {
-            endPosition = startPosition + windowSize;
+            endPosition += startPosition + windowSize;
+            if (elementPosition > 0) {
+                endPosition -= elementPosition;
+            }
         }
         else {
-            endPosition = startPosition + displayableElementSize;
+            endPosition += startPosition + displayableElementSize;
         }
         var endIndex = Math.floor(endPosition / unitSize) + itemsOverplusEnd;
         if (endIndex >= arrayLength) {
