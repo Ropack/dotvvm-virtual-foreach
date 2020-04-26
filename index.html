@@ -48,7 +48,7 @@
 <body>
     
     <div class="virtualized-list-vertical virtualized-list-custom virtualized-list-vertical-custom">
-        <div data-bind="virtualized-foreach: GridData, virtualized-foreach-row-height: 145, virtualized-foreach-orientation: 'vertical'">
+        <div data-bind="virtualized-foreach: GridData, virtualized-foreach-options: { elementSize: 145, orientation: 'vertical' }">
             <div class="card-vertical card-custom">
                 <h1 data-bind="text: Id"></h1>
                 <p data-bind="text: FirstName() + ' ' + LastName()"></p>
@@ -57,7 +57,7 @@
     </div>
 
     <div class="virtualized-list-horizontal virtualized-list-custom">
-        <div data-bind="virtualized-foreach: GridData, virtualized-foreach-column-width: 100, virtualized-foreach-orientation: 'horizontal'">
+        <div data-bind="virtualized-foreach: GridData, virtualized-foreach-options: { elementSize: 100, orientation: 'horizontal' }">
             <div class="card-horizontal card-custom">
                 <h1 data-bind="text: Id"></h1>
                 <p data-bind="text: FirstName() + ' ' + LastName()"></p>

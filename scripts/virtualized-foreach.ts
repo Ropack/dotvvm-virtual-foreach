@@ -1,201 +1,258 @@
-﻿interface ScrollInfo {
-    elementScrollTop: KnockoutObservable<number>;
-    elementScrollLeft: KnockoutObservable<number>;
-    windowScrollTop: KnockoutObservable<number>;
-    windowScrollLeft: KnockoutObservable<number>;
+﻿interface VirtualizedForeachOptions {
+    elementSize: number;
+    orientation: 'vertical' | 'horizontal';
+    enableLogging?: boolean;
+    overflowElementCount?: number;
 }
+
+interface ArrayRange {
+    startIndex: number;
+    endIndex: number;
+}
+
+interface ScrollState {
+    elementPosition: number;
+    scrollPosition: number;
+    windowScrollPosition: number;
+    visibleSize: number;
+    windowSize: number;    
+}
+
+class VirtualizedScrollArea {
+    
+    private state: KnockoutObservable<ScrollState>;
+    
+    constructor(public arrayLength: number, public unitSize: number, private onFixScrollPosition: (number) => void) {
+        this.state = ko.observable();
+    }
+
+    getState(): ScrollState {
+        return this.state();
+    }
+
+    setState(newState: ScrollState) {
+        this.state(newState);
+    }    
+
+    getDesiredSize() {
+        return this.arrayLength * this.unitSize;
+    }
+
+    fixScrollPosition(position: number) {
+        this.onFixScrollPosition(position);
+    }
+
+}
+
+
 (function () {
+    function addOrReplaceEventListener<K extends keyof HTMLElementEventMap>(element: HTMLElement, eventName: K, handler: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, eventTarget: any, id: string) {
+        let existingHandler = removeObjectById(element, id);
+        if (existingHandler) {
+            eventTarget.removeEventListener(eventName, existingHandler);
+        }
+        eventTarget.addEventListener(eventName, handler);
+        element[id] = handler;
+    }
+    
+    function removeObjectById(storageElement: any, id: string) {
+        let existingHandler = storageElement[id];
+        storageElement[id] = undefined;
+        return existingHandler;
+    }
+
+    function setOrReplaceInterval(element: HTMLElement, handler: () => any, timeout: number, id: string) {
+        let existingInterval = removeObjectById(element, id);
+        if(existingInterval) {
+            clearInterval(existingInterval)
+        }
+        let i = setInterval(handler, timeout);
+        element[id] = i;
+    }
+
+    function getScrollState(options: VirtualizedForeachOptions, element: HTMLElement): ScrollState {
+        if (options.orientation === "horizontal") {
+            return {
+                elementPosition: element.parentElement.getBoundingClientRect().left,
+                scrollPosition: element.parentElement.scrollLeft,
+                windowScrollPosition: window.scrollX,
+                visibleSize: element.parentElement.clientWidth,
+                windowSize: window.innerWidth
+            };
+        } else {
+            return {
+                elementPosition: element.parentElement.getBoundingClientRect().top,
+                scrollPosition: element.parentElement.scrollTop,
+                windowScrollPosition: window.scrollY,
+                visibleSize: element.parentElement.clientHeight,
+                windowSize: window.innerHeight
+            };
+        }
+    }
+
+    function bindHandlers(options: VirtualizedForeachOptions, element: HTMLElement, scrollArea: VirtualizedScrollArea) {
+        // react to scroll
+        function scrollOrResizeHandler() {
+            const state = getScrollState(options, element);
+            if (options.enableLogging) {
+                console.log(state);
+            }
+            scrollArea.setState(state);
+        };
+        addOrReplaceEventListener(element.parentElement, "scroll", scrollOrResizeHandler, element.parentElement, 'dotvvmVirtualForeachScrollElement');
+        addOrReplaceEventListener(element.parentElement, "scroll", scrollOrResizeHandler, window, 'dotvvmVirtualForeachScrollWindow');
+        setOrReplaceInterval(element, scrollOrResizeHandler, 1000, "dotvvmVirtualForeachElementResizeInterval");
+    }
+
+    function setElementPaddings(options: VirtualizedForeachOptions, element: HTMLElement, arrayRange: ArrayRange, scrollArea: VirtualizedScrollArea) {
+        if (options.orientation === 'horizontal') {
+            element.style.paddingLeft = arrayRange.startIndex * scrollArea.unitSize + "px";
+            element.style.width = scrollArea.getDesiredSize() - arrayRange.startIndex * scrollArea.unitSize + "px";
+        }
+        else {
+            element.style.paddingTop = arrayRange.startIndex * scrollArea.unitSize + "px";
+            element.style.paddingBottom = (scrollArea.arrayLength - arrayRange.endIndex - 1) * scrollArea.unitSize + "px";
+        }
+    }
+
+    function fixScrollPosition(options: VirtualizedForeachOptions, element: HTMLElement, position: number) {
+        if (options.orientation === "horizontal") {
+            element.parentElement.scrollLeft = position;
+        } else {
+            element.parentElement.scrollTop = position;
+        }
+    }
+
+    function coerceInputArray(array: any) {
+        if (Array.isArray(array)) {
+            return array;
+        }
+        else if (Array.isArray(array.data())) {
+            return array.data();
+        } else {
+            return null;
+        }
+    }
+
     ko.bindingHandlers["virtualized-foreach"] = {
         init(element: HTMLElement, valueAccessor: () => any, allBindingsAccessor: KnockoutAllBindingsAccessor, viewModel: any, bindingContext: KnockoutBindingContext) {
-
             return ko.bindingHandlers['foreach']['init'](element, valueAccessor, allBindingsAccessor, viewModel, bindingContext);
         },
         update(element: HTMLElement, valueAccessor: () => any, allBindingsAccessor: KnockoutAllBindingsAccessor, viewModel: any, bindingContext: KnockoutBindingContext) {
-            function addOrReplaceEventListener<K extends keyof HTMLElementEventMap>(element: HTMLElement, eventName: K, handler: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, eventTarget: any, id: string) {
-                let existingHandler = removeObjectById(element, id);
-                if (existingHandler) {
-                    eventTarget.removeEventListener(eventName, existingHandler);
-                }
-                eventTarget.addEventListener(eventName, handler);
-                element[id] = handler;
-            }
-            function setOrReplaceInterval(element: HTMLElement, id: string, handler: () => any, timeout: number) {
-                let existingInterval = removeObjectById(element, id);
-                if(existingInterval) {
-                    clearInterval(existingInterval)
-                }
-                let i = setInterval(handler, timeout);
-                element[id] = i;
-            }
-            function removeObjectById(storageElement: any, id: string) {
-                let existingHandler = storageElement[id];
-                storageElement[id] = undefined;
-                return existingHandler;
+            
+            // get source array
+            const value = valueAccessor();
+            const array = coerceInputArray(ko.unwrap(value));
+            if (array === null) {
+                console.warn("Array was not recognized by virtualized-foreach binding, falling back to regular foreach.");
+                return ko.bindingHandlers['foreach']['update'](element, () => value, allBindingsAccessor, viewModel, bindingContext);
+            }   
+
+            // get options
+            let options: VirtualizedForeachOptions = allBindingsAccessor.get("virtualized-foreach-options");
+            if (options.enableLogging) {
+                console.log(`Calling v-foreach update with params: elementSize=${options.elementSize}, orientation=${options.orientation}`);
             }
 
-            let array = ko.unwrap(valueAccessor());
+            // create scroll area
+            var scrollArea = new VirtualizedScrollArea(array.length, options.elementSize, pos => fixScrollPosition(options, element, pos));
+            scrollArea.setState(getScrollState(options, element));
 
-            if (Array.isArray(array)) {
-            }
-            else if(Array.isArray(array.data())) {
-                array = array.data();
-            }
-            else {
-                console.warn("Array was not recognized by virtualized-foreach binding, falling back to regular foreach.")
-                return ko.bindingHandlers['foreach']['update'](element, () => array, allBindingsAccessor, viewModel, bindingContext);
-            }
-
-            // get parameters
-            let rowHeight = allBindingsAccessor.get("virtualized-foreach-row-height") || 0;
-            let columnWidth = allBindingsAccessor.get("virtualized-foreach-column-width") || 0;
-            let orientation = allBindingsAccessor.get("virtualized-foreach-orientation") || 'vertical';
-            let isHorizontalMode = orientation.toLowerCase() === 'horizontal';
-
-            console.log(`Calling v-foreach update with params: rowHeight=${rowHeight}, columnWidth=${columnWidth}, orientation=${orientation}`);
-
-            let elementPosition = ko.observable(element.parentElement.getBoundingClientRect());
-
-            // get scroll values and handle scroll changes
-            let scrollInfo = {
-                elementScrollTop: ko.observable(element.parentElement.scrollTop),
-                elementScrollLeft: ko.observable(element.parentElement.scrollLeft),
-                windowScrollTop: ko.observable(window.scrollY),
-                windowScrollLeft: ko.observable(window.scrollX)
-            }
-
-            let windowScrollHandler = function () {
-                console.log(`Window has been scrolled. Updating scroll values: top=${this.scrollY}, left=${this.scrollX}`);
-                scrollInfo.windowScrollTop(this.scrollY);
-                scrollInfo.windowScrollLeft(this.scrollX);
-                elementPosition(element.parentElement.getBoundingClientRect());
-            };
-            let elementScrollHandler = function () {
-                console.log(`Element has been scrolled. Updating scroll values: top=${this.scrollTop}, left=${this.scrollLeft}`);
-                scrollInfo.elementScrollTop(this.scrollTop);
-                scrollInfo.elementScrollLeft(this.scrollLeft);
-            };
-            addOrReplaceEventListener(element.parentElement, "scroll", elementScrollHandler, element.parentElement, 'dotvvmVirtualForeachScrollElement');
-            addOrReplaceEventListener(element.parentElement, "scroll", windowScrollHandler, window, 'dotvvmVirtualForeachScrollWindow');
-
-            // get size of element visible on display
-            console.log("u" + element.parentElement.clientHeight);
-            let visibleElementHeight = ko.observable(element.parentElement.clientHeight);
-            let visibleElementWidth = ko.observable(element.parentElement.clientWidth);
-
-            // react to element resize
-            let elementResizeHandler = function() {
-                console.log("Checking element size")
-                if(visibleElementHeight() != element.parentElement.clientHeight) {
-                    visibleElementHeight(element.parentElement.clientHeight)
-                }
-                if(visibleElementWidth() != element.parentElement.clientWidth) {
-                    visibleElementWidth(element.parentElement.clientWidth)
-                }
-            };
-            setOrReplaceInterval(element, "dotvvmVirtualForeachElementResizeInterval", elementResizeHandler, 1000);
+            // bind handlers
+            bindHandlers(options, element, scrollArea);
 
             // create sub array and calculate paddings
-            let visibleArray = ko.computed(() => getVisibleSubArray(element, scrollInfo, rowHeight, columnWidth, elementPosition, visibleElementHeight, visibleElementWidth, array, isHorizontalMode));
+            let visibleArray = ko.computed(() => 
+            {
+                var arrayRange = getVisibleSubArray(options, element, scrollArea);
+                setElementPaddings(options, element, arrayRange, scrollArea);
+                return array.slice(arrayRange.startIndex, arrayRange.endIndex + 1);
+            });
 
             // create foreach binding with only subarray items
             let foreachResult = ko.bindingHandlers['foreach']['update'](element, () => visibleArray, allBindingsAccessor, viewModel, bindingContext);
-
-            // update size of element visible on display (before foreach binding creatating it was 0)
-            visibleElementHeight(element.parentElement.clientHeight);
-            visibleElementWidth(element.parentElement.clientWidth);
-
+            scrollArea.setState(getScrollState(options, element));
             return foreachResult;
         }
     }
 
-    function getVisibleSubArray(element: HTMLElement, scrollInfo: ScrollInfo, rowHeight: number, columnWidth: number,
-        elementPositionRect: KnockoutObservable<DOMRect>, visibleHeight: KnockoutObservable<number>, visibleWidth: KnockoutObservable<number>,
-        array: any, isHorizontalMode: boolean) {
+    function getVisibleSubArray(options: VirtualizedForeachOptions, element: HTMLElement, scrollArea: VirtualizedScrollArea) {
 
-        console.log(`Recalculating array (horizontal=${isHorizontalMode})`);
-
-        const itemsOverplusCount = 3;
-        const itemsOverplusBegin = Math.floor(itemsOverplusCount / 2);
-        const itemsOverplusEnd = itemsOverplusCount - itemsOverplusBegin;
-        let arrayLength = array.length || 0;
-        let unitSize: number;
-        let scrollPosition: KnockoutObservable<number>;
-        let windowSize: number;
-        let visibleSize: KnockoutObservable<number>;
-        let elementPosition : number;
-
-        if (isHorizontalMode) {
-            unitSize = columnWidth;
-            scrollPosition = scrollInfo.elementScrollLeft;
-            visibleSize = visibleWidth;
-            elementPosition = elementPositionRect().left;
-            windowSize = window.innerWidth;
-        }
-        else {
-            unitSize = rowHeight;
-            scrollPosition = scrollInfo.elementScrollTop;
-            visibleSize = visibleHeight;
-            elementPosition = elementPositionRect().top;
-            windowSize = window.innerHeight;
+        if (options.enableLogging) {
+            console.log(`Recalculating array (orientation=${options.orientation})`);
         }
 
-        let desiredSize = arrayLength * unitSize;
+        // fix out-of-range scroll position
+        fixOutOfRangeScrollPosition(options, element, scrollArea);
 
-        if (scrollPosition() > desiredSize) {
-            let endScrollPosition = desiredSize - visibleSize();
+        // calculate startIndex
+        let arrayRange = calculateArrayRange(options, scrollArea);
+
+        if (options.enableLogging) {
+            console.log(`Returning subarray within indexes ${arrayRange.startIndex} and ${arrayRange.endIndex}.`);
+        }
+
+        // return visible array range
+        return arrayRange;
+    }
+
+    function fixOutOfRangeScrollPosition(options: VirtualizedForeachOptions, element: HTMLElement, scrollArea: VirtualizedScrollArea) {
+        const state = scrollArea.getState();
+        const desiredSize = scrollArea.getDesiredSize();
+
+        if (state.scrollPosition > desiredSize) {
+            let endScrollPosition = desiredSize - state.visibleSize;
             if (endScrollPosition < 0) {
                 endScrollPosition = 0;
             }
-            if (isHorizontalMode) {
+
+            if (options.enableLogging) {
                 console.warn(`Scrolled out of range, autoscrolling to: ${endScrollPosition}, ${element.parentElement.scrollTop}`);
-                element.parentElement.scrollLeft = endScrollPosition;
             }
-            else {
-                // alert(`Scrolled out of range, autoscrolling to: ${element.parentElement.scrollLeft}, ${1000}`)
-                element.parentElement.scrollTop = endScrollPosition;
-            }
+
+            scrollArea.fixScrollPosition(endScrollPosition);            
+        }
+    }
+
+    function calculateArrayRange(options: VirtualizedForeachOptions, scrollArea: VirtualizedScrollArea) {
+        
+        const overflowElementCount = options.overflowElementCount || 3;
+        const overflowElementCountBegin = Math.floor(overflowElementCount / 2);
+        const overflowElementCountEnd = overflowElementCount - overflowElementCountBegin;
+        
+        const state = scrollArea.getState();
+
+        let startPosition = state.scrollPosition;
+        if (state.elementPosition < 0) {
+            startPosition -= state.elementPosition;
         }
 
-        // calculate startIndex
-        let startPosition = scrollPosition();
-        let endPosition = 0;
-        if(elementPosition < 0) {
-            startPosition -= elementPosition;
-        }
-        let startIndex = Math.floor(startPosition / unitSize) - itemsOverplusBegin;
+        let startIndex = Math.floor(startPosition / scrollArea.unitSize) - overflowElementCountBegin;
         if (startIndex < 0) {
             startIndex = 0;
             startPosition = 0;
         }
 
-        let displayableElementSize = visibleSize() + elementPosition;
-        if(displayableElementSize > windowSize) {
-            endPosition += startPosition + windowSize;
-            if(elementPosition > 0) {
-                endPosition -= elementPosition;
+        let endPosition = 0;
+        let displayableElementSize = state.visibleSize + state.elementPosition;
+        if (displayableElementSize > state.windowSize) {
+            endPosition += startPosition + state.windowSize;
+            if (state.elementPosition > 0) {
+                endPosition -= state.elementPosition;
             }
         }
         else {
             endPosition += startPosition + displayableElementSize;
         }
-        let endIndex = Math.floor(endPosition / unitSize) + itemsOverplusEnd;
 
-        if (endIndex >= arrayLength) {
-            endIndex = arrayLength - 1;
+        let endIndex = Math.floor(endPosition / scrollArea.unitSize) + overflowElementCountEnd;
+        if (endIndex >= scrollArea.arrayLength) {
+            endIndex = scrollArea.arrayLength - 1;
         }
 
-        if (isHorizontalMode) {
-            element.style.paddingLeft = startIndex * columnWidth + "px";
-            element.style.width = desiredSize - startIndex * columnWidth + "px";
-        }
-        else {
-            element.style.paddingTop = startIndex * rowHeight + "px";
-            element.style.paddingBottom = (arrayLength - endIndex - 1) * rowHeight + "px";
-        }
-
-        console.log(`Returning subarray within indexes ${startIndex} and ${endIndex}.`)
-        return array.slice(startIndex, endIndex + 1);
+        return { startIndex, endIndex };
     }
+
 
     /*
     - Mode = Vertical | Horizontal ✅
@@ -214,3 +271,4 @@
     */
 
 })();
+

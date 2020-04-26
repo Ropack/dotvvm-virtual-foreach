@@ -1,167 +1,201 @@
+var VirtualizedScrollArea = /** @class */ (function () {
+    function VirtualizedScrollArea(arrayLength, unitSize, onFixScrollPosition) {
+        this.arrayLength = arrayLength;
+        this.unitSize = unitSize;
+        this.onFixScrollPosition = onFixScrollPosition;
+        this.state = ko.observable();
+    }
+    VirtualizedScrollArea.prototype.getState = function () {
+        return this.state();
+    };
+    VirtualizedScrollArea.prototype.setState = function (newState) {
+        this.state(newState);
+    };
+    VirtualizedScrollArea.prototype.getDesiredSize = function () {
+        return this.arrayLength * this.unitSize;
+    };
+    VirtualizedScrollArea.prototype.fixScrollPosition = function (position) {
+        this.onFixScrollPosition(position);
+    };
+    return VirtualizedScrollArea;
+}());
 (function () {
+    function addOrReplaceEventListener(element, eventName, handler, eventTarget, id) {
+        var existingHandler = removeObjectById(element, id);
+        if (existingHandler) {
+            eventTarget.removeEventListener(eventName, existingHandler);
+        }
+        eventTarget.addEventListener(eventName, handler);
+        element[id] = handler;
+    }
+    function removeObjectById(storageElement, id) {
+        var existingHandler = storageElement[id];
+        storageElement[id] = undefined;
+        return existingHandler;
+    }
+    function setOrReplaceInterval(element, handler, timeout, id) {
+        var existingInterval = removeObjectById(element, id);
+        if (existingInterval) {
+            clearInterval(existingInterval);
+        }
+        var i = setInterval(handler, timeout);
+        element[id] = i;
+    }
+    function getScrollState(options, element) {
+        if (options.orientation === "horizontal") {
+            return {
+                elementPosition: element.parentElement.getBoundingClientRect().left,
+                scrollPosition: element.parentElement.scrollLeft,
+                windowScrollPosition: window.scrollX,
+                visibleSize: element.parentElement.clientWidth,
+                windowSize: window.innerWidth
+            };
+        }
+        else {
+            return {
+                elementPosition: element.parentElement.getBoundingClientRect().top,
+                scrollPosition: element.parentElement.scrollTop,
+                windowScrollPosition: window.scrollY,
+                visibleSize: element.parentElement.clientHeight,
+                windowSize: window.innerHeight
+            };
+        }
+    }
+    function bindHandlers(options, element, scrollArea) {
+        // react to scroll
+        function scrollOrResizeHandler() {
+            var state = getScrollState(options, element);
+            if (options.enableLogging) {
+                console.log(state);
+            }
+            scrollArea.setState(state);
+        }
+        ;
+        addOrReplaceEventListener(element.parentElement, "scroll", scrollOrResizeHandler, element.parentElement, 'dotvvmVirtualForeachScrollElement');
+        addOrReplaceEventListener(element.parentElement, "scroll", scrollOrResizeHandler, window, 'dotvvmVirtualForeachScrollWindow');
+        setOrReplaceInterval(element, scrollOrResizeHandler, 1000, "dotvvmVirtualForeachElementResizeInterval");
+    }
+    function setElementPaddings(options, element, arrayRange, scrollArea) {
+        if (options.orientation === 'horizontal') {
+            element.style.paddingLeft = arrayRange.startIndex * scrollArea.unitSize + "px";
+            element.style.width = scrollArea.getDesiredSize() - arrayRange.startIndex * scrollArea.unitSize + "px";
+        }
+        else {
+            element.style.paddingTop = arrayRange.startIndex * scrollArea.unitSize + "px";
+            element.style.paddingBottom = (scrollArea.arrayLength - arrayRange.endIndex - 1) * scrollArea.unitSize + "px";
+        }
+    }
+    function fixScrollPosition(options, element, position) {
+        if (options.orientation === "horizontal") {
+            element.parentElement.scrollLeft = position;
+        }
+        else {
+            element.parentElement.scrollTop = position;
+        }
+    }
+    function coerceInputArray(array) {
+        if (Array.isArray(array)) {
+            return array;
+        }
+        else if (Array.isArray(array.data())) {
+            return array.data();
+        }
+        else {
+            return null;
+        }
+    }
     ko.bindingHandlers["virtualized-foreach"] = {
         init: function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
             return ko.bindingHandlers['foreach']['init'](element, valueAccessor, allBindingsAccessor, viewModel, bindingContext);
         },
         update: function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
-            function addOrReplaceEventListener(element, eventName, handler, eventTarget, id) {
-                var existingHandler = removeObjectById(element, id);
-                if (existingHandler) {
-                    eventTarget.removeEventListener(eventName, existingHandler);
-                }
-                eventTarget.addEventListener(eventName, handler);
-                element[id] = handler;
-            }
-            function setOrReplaceInterval(element, id, handler, timeout) {
-                var existingInterval = removeObjectById(element, id);
-                if (existingInterval) {
-                    clearInterval(existingInterval);
-                }
-                var i = setInterval(handler, timeout);
-                element[id] = i;
-            }
-            function removeObjectById(storageElement, id) {
-                var existingHandler = storageElement[id];
-                storageElement[id] = undefined;
-                return existingHandler;
-            }
-            var array = ko.unwrap(valueAccessor());
-            if (Array.isArray(array)) {
-            }
-            else if (Array.isArray(array.data())) {
-                array = array.data();
-            }
-            else {
+            // get source array
+            var value = valueAccessor();
+            var array = coerceInputArray(ko.unwrap(value));
+            if (array === null) {
                 console.warn("Array was not recognized by virtualized-foreach binding, falling back to regular foreach.");
-                return ko.bindingHandlers['foreach']['update'](element, function () { return array; }, allBindingsAccessor, viewModel, bindingContext);
+                return ko.bindingHandlers['foreach']['update'](element, function () { return value; }, allBindingsAccessor, viewModel, bindingContext);
             }
-            // get parameters
-            var rowHeight = allBindingsAccessor.get("virtualized-foreach-row-height") || 0;
-            var columnWidth = allBindingsAccessor.get("virtualized-foreach-column-width") || 0;
-            var orientation = allBindingsAccessor.get("virtualized-foreach-orientation") || 'vertical';
-            var isHorizontalMode = orientation.toLowerCase() === 'horizontal';
-            console.log("Calling v-foreach update with params: rowHeight=" + rowHeight + ", columnWidth=" + columnWidth + ", orientation=" + orientation);
-            var elementPosition = ko.observable(element.parentElement.getBoundingClientRect());
-            // get scroll values and handle scroll changes
-            var scrollInfo = {
-                elementScrollTop: ko.observable(element.parentElement.scrollTop),
-                elementScrollLeft: ko.observable(element.parentElement.scrollLeft),
-                windowScrollTop: ko.observable(window.scrollY),
-                windowScrollLeft: ko.observable(window.scrollX)
-            };
-            var windowScrollHandler = function () {
-                console.log("Window has been scrolled. Updating scroll values: top=" + this.scrollY + ", left=" + this.scrollX);
-                scrollInfo.windowScrollTop(this.scrollY);
-                scrollInfo.windowScrollLeft(this.scrollX);
-                elementPosition(element.parentElement.getBoundingClientRect());
-            };
-            var elementScrollHandler = function () {
-                console.log("Element has been scrolled. Updating scroll values: top=" + this.scrollTop + ", left=" + this.scrollLeft);
-                scrollInfo.elementScrollTop(this.scrollTop);
-                scrollInfo.elementScrollLeft(this.scrollLeft);
-            };
-            addOrReplaceEventListener(element.parentElement, "scroll", elementScrollHandler, element.parentElement, 'dotvvmVirtualForeachScrollElement');
-            addOrReplaceEventListener(element.parentElement, "scroll", windowScrollHandler, window, 'dotvvmVirtualForeachScrollWindow');
-            // get size of element visible on display
-            console.log("u" + element.parentElement.clientHeight);
-            var visibleElementHeight = ko.observable(element.parentElement.clientHeight);
-            var visibleElementWidth = ko.observable(element.parentElement.clientWidth);
-            // react to element resize
-            var elementResizeHandler = function () {
-                console.log("Checking element size");
-                if (visibleElementHeight() != element.parentElement.clientHeight) {
-                    visibleElementHeight(element.parentElement.clientHeight);
-                }
-                if (visibleElementWidth() != element.parentElement.clientWidth) {
-                    visibleElementWidth(element.parentElement.clientWidth);
-                }
-            };
-            setOrReplaceInterval(element, "dotvvmVirtualForeachElementResizeInterval", elementResizeHandler, 1000);
+            // get options
+            var options = allBindingsAccessor.get("virtualized-foreach-options");
+            if (options.enableLogging) {
+                console.log("Calling v-foreach update with params: elementSize=" + options.elementSize + ", orientation=" + options.orientation);
+            }
+            // create scroll area
+            var scrollArea = new VirtualizedScrollArea(array.length, options.elementSize, function (pos) { return fixScrollPosition(options, element, pos); });
+            scrollArea.setState(getScrollState(options, element));
+            // bind handlers
+            bindHandlers(options, element, scrollArea);
             // create sub array and calculate paddings
-            var visibleArray = ko.computed(function () { return getVisibleSubArray(element, scrollInfo, rowHeight, columnWidth, elementPosition, visibleElementHeight, visibleElementWidth, array, isHorizontalMode); });
+            var visibleArray = ko.computed(function () {
+                var arrayRange = getVisibleSubArray(options, element, scrollArea);
+                setElementPaddings(options, element, arrayRange, scrollArea);
+                return array.slice(arrayRange.startIndex, arrayRange.endIndex + 1);
+            });
             // create foreach binding with only subarray items
             var foreachResult = ko.bindingHandlers['foreach']['update'](element, function () { return visibleArray; }, allBindingsAccessor, viewModel, bindingContext);
-            // update size of element visible on display (before foreach binding creatating it was 0)
-            visibleElementHeight(element.parentElement.clientHeight);
-            visibleElementWidth(element.parentElement.clientWidth);
+            scrollArea.setState(getScrollState(options, element));
             return foreachResult;
         }
     };
-    function getVisibleSubArray(element, scrollInfo, rowHeight, columnWidth, elementPositionRect, visibleHeight, visibleWidth, array, isHorizontalMode) {
-        console.log("Recalculating array (horizontal=" + isHorizontalMode + ")");
-        var itemsOverplusCount = 3;
-        var itemsOverplusBegin = Math.floor(itemsOverplusCount / 2);
-        var itemsOverplusEnd = itemsOverplusCount - itemsOverplusBegin;
-        var arrayLength = array.length || 0;
-        var unitSize;
-        var scrollPosition;
-        var windowSize;
-        var visibleSize;
-        var elementPosition;
-        if (isHorizontalMode) {
-            unitSize = columnWidth;
-            scrollPosition = scrollInfo.elementScrollLeft;
-            visibleSize = visibleWidth;
-            elementPosition = elementPositionRect().left;
-            windowSize = window.innerWidth;
+    function getVisibleSubArray(options, element, scrollArea) {
+        if (options.enableLogging) {
+            console.log("Recalculating array (orientation=" + options.orientation + ")");
         }
-        else {
-            unitSize = rowHeight;
-            scrollPosition = scrollInfo.elementScrollTop;
-            visibleSize = visibleHeight;
-            elementPosition = elementPositionRect().top;
-            windowSize = window.innerHeight;
+        // fix out-of-range scroll position
+        fixOutOfRangeScrollPosition(options, element, scrollArea);
+        // calculate startIndex
+        var arrayRange = calculateArrayRange(options, scrollArea);
+        if (options.enableLogging) {
+            console.log("Returning subarray within indexes " + arrayRange.startIndex + " and " + arrayRange.endIndex + ".");
         }
-        var desiredSize = arrayLength * unitSize;
-        if (scrollPosition() > desiredSize) {
-            var endScrollPosition = desiredSize - visibleSize();
+        // return visible array range
+        return arrayRange;
+    }
+    function fixOutOfRangeScrollPosition(options, element, scrollArea) {
+        var state = scrollArea.getState();
+        var desiredSize = scrollArea.getDesiredSize();
+        if (state.scrollPosition > desiredSize) {
+            var endScrollPosition = desiredSize - state.visibleSize;
             if (endScrollPosition < 0) {
                 endScrollPosition = 0;
             }
-            if (isHorizontalMode) {
+            if (options.enableLogging) {
                 console.warn("Scrolled out of range, autoscrolling to: " + endScrollPosition + ", " + element.parentElement.scrollTop);
-                element.parentElement.scrollLeft = endScrollPosition;
             }
-            else {
-                // alert(`Scrolled out of range, autoscrolling to: ${element.parentElement.scrollLeft}, ${1000}`)
-                element.parentElement.scrollTop = endScrollPosition;
-            }
+            scrollArea.fixScrollPosition(endScrollPosition);
         }
-        // calculate startIndex
-        var startPosition = scrollPosition();
-        var endPosition = 0;
-        if (elementPosition < 0) {
-            startPosition -= elementPosition;
+    }
+    function calculateArrayRange(options, scrollArea) {
+        var overflowElementCount = options.overflowElementCount || 3;
+        var overflowElementCountBegin = Math.floor(overflowElementCount / 2);
+        var overflowElementCountEnd = overflowElementCount - overflowElementCountBegin;
+        var state = scrollArea.getState();
+        var startPosition = state.scrollPosition;
+        if (state.elementPosition < 0) {
+            startPosition -= state.elementPosition;
         }
-        var startIndex = Math.floor(startPosition / unitSize) - itemsOverplusBegin;
+        var startIndex = Math.floor(startPosition / scrollArea.unitSize) - overflowElementCountBegin;
         if (startIndex < 0) {
             startIndex = 0;
             startPosition = 0;
         }
-        var displayableElementSize = visibleSize() + elementPosition;
-        if (displayableElementSize > windowSize) {
-            endPosition += startPosition + windowSize;
-            if (elementPosition > 0) {
-                endPosition -= elementPosition;
+        var endPosition = 0;
+        var displayableElementSize = state.visibleSize + state.elementPosition;
+        if (displayableElementSize > state.windowSize) {
+            endPosition += startPosition + state.windowSize;
+            if (state.elementPosition > 0) {
+                endPosition -= state.elementPosition;
             }
         }
         else {
             endPosition += startPosition + displayableElementSize;
         }
-        var endIndex = Math.floor(endPosition / unitSize) + itemsOverplusEnd;
-        if (endIndex >= arrayLength) {
-            endIndex = arrayLength - 1;
+        var endIndex = Math.floor(endPosition / scrollArea.unitSize) + overflowElementCountEnd;
+        if (endIndex >= scrollArea.arrayLength) {
+            endIndex = scrollArea.arrayLength - 1;
         }
-        if (isHorizontalMode) {
-            element.style.paddingLeft = startIndex * columnWidth + "px";
-            element.style.width = desiredSize - startIndex * columnWidth + "px";
-        }
-        else {
-            element.style.paddingTop = startIndex * rowHeight + "px";
-            element.style.paddingBottom = (arrayLength - endIndex - 1) * rowHeight + "px";
-        }
-        console.log("Returning subarray within indexes " + startIndex + " and " + endIndex + ".");
-        return array.slice(startIndex, endIndex + 1);
+        return { startIndex: startIndex, endIndex: endIndex };
     }
     /*
     - Mode = Vertical | Horizontal ✅
