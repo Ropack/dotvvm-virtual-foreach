@@ -217,19 +217,4 @@ var VirtualizedScrollArea = /** @class */ (function () {
         }
         return { startIndex: startIndex, endIndex: endIndex };
     }
-    /*
-    - Mode = Vertical | Horizontal ✅
-    - Na začátku zjistit defaultní padding boxu a připočítávat ho
-    - Správně reagovat na resize elementu - timer ✅
-    - Ujistit se, že zásah do kolekce GridData nebo její nahrazení jinou kolekcí se propíše do komponenty ✅
-    - Ověřit, že se to chová dobře na mobilech ✅
-
-    Bonus
-    - Změřit si zobrazené elementy a zařídit se podle toho
-
-
-    - Přidat podporu pro virzualizaci při scrollování celé stránky ✅
-
-
-    */
 })();
