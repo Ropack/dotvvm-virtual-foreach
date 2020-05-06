@@ -46,28 +46,36 @@ class VirtualizedScrollArea {
 
 
 (function () {
-    function addOrReplaceEventListener<K extends keyof HTMLElementEventMap>(element: HTMLElement, eventName: K, handler: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, eventTarget: any, id: string) {
-        let existingHandler = removeObjectById(element, id);
-        if (existingHandler) {
-            eventTarget.removeEventListener(eventName, existingHandler);
-        }
+    function addOrReplaceEventListener<K extends keyof HTMLElementEventMap>(element: HTMLElement, eventName: K, handler: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, eventTarget: any, id: string): void {
+        removeEventListenerFromElementById(element, eventName, eventTarget, id);
         eventTarget.addEventListener(eventName, handler);
         element[id] = handler;
     }
+
+    function removeEventListenerFromElementById<K extends keyof HTMLElementEventMap>(storageElement: HTMLElement, eventName: K, eventTarget: any, id: string): void {
+        let existingHandler = removeSavedObjectById(storageElement, id);
+        if (existingHandler) {
+            eventTarget.removeEventListener(eventName, existingHandler);
+        }
+    }
     
-    function removeObjectById(storageElement: any, id: string) {
+    function removeSavedObjectById(storageElement: HTMLElement, id: string): any {
         let existingHandler = storageElement[id];
         storageElement[id] = undefined;
         return existingHandler;
     }
 
-    function setOrReplaceInterval(element: HTMLElement, handler: () => any, timeout: number, id: string) {
-        let existingInterval = removeObjectById(element, id);
+    function setOrReplaceInterval(element: HTMLElement, handler: () => any, timeout: number, id: string): void {
+        removeIntervalFromElementById(element, id);
+        let i = setInterval(handler, timeout);
+        element[id] = i;
+    }
+
+    function removeIntervalFromElementById(storageElement: HTMLElement, id: string): void {
+        let existingInterval = removeSavedObjectById(storageElement, id);
         if(existingInterval) {
             clearInterval(existingInterval)
         }
-        let i = setInterval(handler, timeout);
-        element[id] = i;
     }
 
     function getScrollState(options: VirtualizedForeachOptions, element: HTMLElement): ScrollState {
@@ -90,6 +98,10 @@ class VirtualizedScrollArea {
         }
     }
 
+    const elementScrollHandlerStorageKey = 'dotvvmVirtualForeachScrollElement';
+    const windowScrollHandlerStorageKey = 'dotvvmVirtualForeachScrollWindow';
+    const resizeIntervalStorageKey = 'dotvvmVirtualForeachElementResizeInterval';
+
     function bindHandlers(options: VirtualizedForeachOptions, element: HTMLElement, scrollArea: VirtualizedScrollArea) {
         // react to scroll
         function scrollOrResizeHandler() {
@@ -99,9 +111,19 @@ class VirtualizedScrollArea {
             }
             scrollArea.setState(state);
         };
-        addOrReplaceEventListener(element.parentElement, "scroll", scrollOrResizeHandler, element.parentElement, 'dotvvmVirtualForeachScrollElement');
-        addOrReplaceEventListener(element.parentElement, "scroll", scrollOrResizeHandler, window, 'dotvvmVirtualForeachScrollWindow');
-        setOrReplaceInterval(element, scrollOrResizeHandler, 1000, "dotvvmVirtualForeachElementResizeInterval");
+        addOrReplaceEventListener(element.parentElement, "scroll", scrollOrResizeHandler, element.parentElement, elementScrollHandlerStorageKey);
+        addOrReplaceEventListener(element.parentElement, "scroll", scrollOrResizeHandler, window, windowScrollHandlerStorageKey);
+        setOrReplaceInterval(element, scrollOrResizeHandler, 1000, resizeIntervalStorageKey);
+    }
+
+    function unbindHandlers(element: HTMLElement) {
+        removeEventListenerFromElementById(element.parentElement, "scroll", element.parentElement, elementScrollHandlerStorageKey);
+        removeEventListenerFromElementById(element.parentElement, "scroll", window, windowScrollHandlerStorageKey);
+        removeIntervalFromElementById(element, resizeIntervalStorageKey);
+    }
+
+    function resetElementPaddings(element: HTMLElement) {
+        element.removeAttribute("style");
     }
 
     function setElementPaddings(options: VirtualizedForeachOptions, element: HTMLElement, arrayRange: ArrayRange, scrollArea: VirtualizedScrollArea) {
@@ -124,14 +146,16 @@ class VirtualizedScrollArea {
     }
 
     function coerceInputArray(array: any) {
-        if (Array.isArray(array)) {
-            return array;
-        }
-        else if (Array.isArray(array.data())) {
-            return array.data();
-        } else {
-            return null;
-        }
+        try {
+            if (Array.isArray(array)) {
+                return array;
+            }
+            else if (Array.isArray(array.data())) {
+                return array.data();
+            }
+        }   
+        catch {}
+        return null;
     }
 
     ko.bindingHandlers["virtualized-foreach"] = {
@@ -139,14 +163,16 @@ class VirtualizedScrollArea {
             return ko.bindingHandlers['foreach']['init'](element, valueAccessor, allBindingsAccessor, viewModel, bindingContext);
         },
         update(element: HTMLElement, valueAccessor: () => any, allBindingsAccessor: KnockoutAllBindingsAccessor, viewModel: any, bindingContext: KnockoutBindingContext) {
-            
+
             // get source array
             const value = valueAccessor();
             const array = coerceInputArray(ko.unwrap(value));
             if (array === null) {
                 console.warn("Array was not recognized by virtualized-foreach binding, falling back to regular foreach.");
+                resetElementPaddings(element);
+                unbindHandlers(element);
                 return ko.bindingHandlers['foreach']['update'](element, () => value, allBindingsAccessor, viewModel, bindingContext);
-            }   
+            }
 
             // get options
             let options: VirtualizedForeachOptions = allBindingsAccessor.get("virtualized-foreach-options");

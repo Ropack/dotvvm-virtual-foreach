@@ -21,25 +21,31 @@ var VirtualizedScrollArea = /** @class */ (function () {
 }());
 (function () {
     function addOrReplaceEventListener(element, eventName, handler, eventTarget, id) {
-        var existingHandler = removeObjectById(element, id);
-        if (existingHandler) {
-            eventTarget.removeEventListener(eventName, existingHandler);
-        }
+        removeEventListenerFromElementById(element, eventName, eventTarget, id);
         eventTarget.addEventListener(eventName, handler);
         element[id] = handler;
     }
-    function removeObjectById(storageElement, id) {
+    function removeEventListenerFromElementById(storageElement, eventName, eventTarget, id) {
+        var existingHandler = removeSavedObjectById(storageElement, id);
+        if (existingHandler) {
+            eventTarget.removeEventListener(eventName, existingHandler);
+        }
+    }
+    function removeSavedObjectById(storageElement, id) {
         var existingHandler = storageElement[id];
         storageElement[id] = undefined;
         return existingHandler;
     }
     function setOrReplaceInterval(element, handler, timeout, id) {
-        var existingInterval = removeObjectById(element, id);
+        removeIntervalFromElementById(element, id);
+        var i = setInterval(handler, timeout);
+        element[id] = i;
+    }
+    function removeIntervalFromElementById(storageElement, id) {
+        var existingInterval = removeSavedObjectById(storageElement, id);
         if (existingInterval) {
             clearInterval(existingInterval);
         }
-        var i = setInterval(handler, timeout);
-        element[id] = i;
     }
     function getScrollState(options, element) {
         if (options.orientation === "horizontal") {
@@ -61,6 +67,9 @@ var VirtualizedScrollArea = /** @class */ (function () {
             };
         }
     }
+    var elementScrollHandlerStorageKey = 'dotvvmVirtualForeachScrollElement';
+    var windowScrollHandlerStorageKey = 'dotvvmVirtualForeachScrollWindow';
+    var resizeIntervalStorageKey = 'dotvvmVirtualForeachElementResizeInterval';
     function bindHandlers(options, element, scrollArea) {
         // react to scroll
         function scrollOrResizeHandler() {
@@ -71,9 +80,17 @@ var VirtualizedScrollArea = /** @class */ (function () {
             scrollArea.setState(state);
         }
         ;
-        addOrReplaceEventListener(element.parentElement, "scroll", scrollOrResizeHandler, element.parentElement, 'dotvvmVirtualForeachScrollElement');
-        addOrReplaceEventListener(element.parentElement, "scroll", scrollOrResizeHandler, window, 'dotvvmVirtualForeachScrollWindow');
-        setOrReplaceInterval(element, scrollOrResizeHandler, 1000, "dotvvmVirtualForeachElementResizeInterval");
+        addOrReplaceEventListener(element.parentElement, "scroll", scrollOrResizeHandler, element.parentElement, elementScrollHandlerStorageKey);
+        addOrReplaceEventListener(element.parentElement, "scroll", scrollOrResizeHandler, window, windowScrollHandlerStorageKey);
+        setOrReplaceInterval(element, scrollOrResizeHandler, 1000, resizeIntervalStorageKey);
+    }
+    function unbindHandlers(element) {
+        removeEventListenerFromElementById(element.parentElement, "scroll", element.parentElement, elementScrollHandlerStorageKey);
+        removeEventListenerFromElementById(element.parentElement, "scroll", window, windowScrollHandlerStorageKey);
+        removeIntervalFromElementById(element, resizeIntervalStorageKey);
+    }
+    function resetElementPaddings(element) {
+        element.removeAttribute("style");
     }
     function setElementPaddings(options, element, arrayRange, scrollArea) {
         if (options.orientation === 'horizontal') {
@@ -94,15 +111,16 @@ var VirtualizedScrollArea = /** @class */ (function () {
         }
     }
     function coerceInputArray(array) {
-        if (Array.isArray(array)) {
-            return array;
+        try {
+            if (Array.isArray(array)) {
+                return array;
+            }
+            else if (Array.isArray(array.data())) {
+                return array.data();
+            }
         }
-        else if (Array.isArray(array.data())) {
-            return array.data();
-        }
-        else {
-            return null;
-        }
+        catch (_a) { }
+        return null;
     }
     ko.bindingHandlers["virtualized-foreach"] = {
         init: function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
@@ -114,6 +132,8 @@ var VirtualizedScrollArea = /** @class */ (function () {
             var array = coerceInputArray(ko.unwrap(value));
             if (array === null) {
                 console.warn("Array was not recognized by virtualized-foreach binding, falling back to regular foreach.");
+                resetElementPaddings(element);
+                unbindHandlers(element);
                 return ko.bindingHandlers['foreach']['update'](element, function () { return value; }, allBindingsAccessor, viewModel, bindingContext);
             }
             // get options
