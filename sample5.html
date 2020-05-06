@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Foreach</title>
+    <script type="text/javascript" src="lib/knockout-latest.debug.js"></script>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+
+    <style type="text/css">
+        /* Custom (user) styles */
+        /* List */
+        
+        .virtualized-list {
+            border: solid 1px gray;
+            width: fit-content;
+        }
+        
+        .card {
+            padding: 15px;
+            border: solid 1px gray;
+        }
+        /* .virtualized-list-horizontal>div {
+            display: flex;
+            flex-flow: row;
+        } */
+        
+        .card-horizontal {
+            width: 100px;
+            /* float: none; */
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Sample 5</h1>
+    <h2>Virtualized horizontal list - window scrolling</h2>
+
+    <div class="virtualized-list-horizontal virtualized-list">
+        <div data-bind="virtualized-foreach: GridData, virtualized-foreach-options: { elementSize: 100, orientation: 'horizontal', enableLogging: true }">
+            <div class="card-horizontal card">
+                <h1 data-bind="text: Id"></h1>
+                <p data-bind="text: FirstName() + ' ' + LastName()"></p>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript" src="scripts/virtualized-foreach.js"></script>
+    <script type="text/javascript" src="scripts/data.js"></script>
+
+    <input type="button" value="Add new" onclick="testViewModel.addNewRow()" />
+    <input type="button" value="Delete half" onclick="testViewModel.GridData(testViewModel.GridData().slice(0, testViewModel.GridData().length / 2));" />
+    <input type="button" value="Delete all" onclick="testViewModel.GridData([]);" />
+    <input type="button" value="Replace array with object" onclick="testViewModel.GridData({});" />
+</body>
+
+</html>

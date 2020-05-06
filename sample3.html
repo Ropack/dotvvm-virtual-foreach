@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Foreach</title>
+    <script type="text/javascript" src="lib/knockout-latest.debug.js"></script>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+
+    <style type="text/css">
+        /* Custom (user) styles */
+        /* Table */
+        /* .virtualized-table {
+            height: 500px;
+            width: 418px;
+            margin-top: 50px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .virtualized-table-header {
+            flex: none;
+        }
+        
+        .virtualized-table-body {
+            flex: auto;
+            overflow-y: auto;
+            height: 400px;
+        } */
+        
+        .virtualized-table {
+            height: 500px;
+            width: fit-content;
+            margin-top: 50px;
+            overflow-y: auto;
+        }
+        
+        .virtualized-table-header {
+            position: sticky;
+            top: 0;
+            border-bottom: 1px solid gray;
+            background-color: white;
+        }
+        
+        .virtualized-table-row {
+            height: 100px;
+        }
+        
+        .virtualized-table-cell {
+            border-left: 1px solid gray;
+            border-top: 1px solid gray;
+            padding: 10px;
+        }
+        
+        .virtualized-table-cell:last-child {
+            border-right: 1px solid gray;
+        }
+        
+        .virtualized-table-body .virtualized-table-row:last-child .virtualized-table-cell {
+            border-bottom: 1px solid gray;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Sample 3</h1>
+    <h2>Virtualized table with fixed header</h2>
+    <div class="virtualized-table">
+        <div class="virtualized-table-header">
+            <div class="virtualized-table-row">
+                <div class="virtualized-table-cell" style="width: 100px;">Head 1</div>
+                <div class="virtualized-table-cell" style="width: 200px;">Head 2</div>
+                <div class="virtualized-table-cell" style="width: 100px;">Head 3</div>
+            </div>
+        </div>
+        <div class="virtualized-table-body" data-bind="virtualized-foreach: GridData, virtualized-foreach-options: { elementSize: 100, orientation: 'vertical' }">
+            <div class="virtualized-table-row">
+                <div class="virtualized-table-cell" data-bind="text: Id" style="width: 100px;"></div>
+                <div class="virtualized-table-cell" data-bind="text: FirstName() + ' ' + LastName()" style="width: 200px;"></div>
+                <div class="virtualized-table-cell" style="width: 100px;">Body 3</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript" src="scripts/virtualized-foreach.js"></script>
+    <script type="text/javascript" src="scripts/data.js"></script>
+
+    <input type="button" value="Add new" onclick="testViewModel.addNewRow()" />
+    <input type="button" value="Delete half" onclick="testViewModel.GridData(testViewModel.GridData().slice(0, testViewModel.GridData().length / 2));" />
+    <input type="button" value="Delete all" onclick="testViewModel.GridData([]);" />
+    <input type="button" value="Replace array with object" onclick="testViewModel.GridData({});" />
+</body>
+
+</html>

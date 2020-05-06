@@ -1,78 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Virtual Foreach</title>
     <script type="text/javascript" src="lib/knockout-latest.debug.js"></script>
+    <link rel="stylesheet" type="text/css" href="styles.css">
 
     <style type="text/css">
-        /* Component styles */
-        .virtualized-list-vertical {
-            max-height: 1500px;
-            overflow-y: scroll;
-        }
-
-        .card-vertical {
-            height: 145px;
-            box-sizing: border-box;
-        }
-
-        .virtualized-list-horizontal {
-            width: 2400px;
-            overflow-x: scroll;
-        }
-
-        .card-horizontal {
-            display: block;
-            float: left;
-            width: 100px;
-            box-sizing: border-box;
-        }
-
         /* Custom (user) styles */
-        .virtualized-list-custom {
-            border: solid 1px gray;
-        }
-        .virtualized-list-vertical-custom {
+        /* List */
+        
+        .virtualized-list-vertical {
             width: 1000px;
-            margin-top: 1000px;
         }
-        .card-custom {
+        
+        .card {
             padding: 15px;
-            border: solid 1px gray;
         }
-
+        
+        .card-vertical {
+            height: 70px;
+        }
     </style>
 </head>
+
 <body>
-    
-    <div class="virtualized-list-vertical virtualized-list-custom virtualized-list-vertical-custom">
-        <div data-bind="virtualized-foreach: GridData, virtualized-foreach-options: { elementSize: 145, orientation: 'vertical' }">
-            <div class="card-vertical card-custom">
-                <h1 data-bind="text: Id"></h1>
-                <p data-bind="text: FirstName() + ' ' + LastName()"></p>
+    <h1>Virtualized foreach samples</h1>
+    <div class="virtualized-list-vertical virtualized-list">
+        <div data-bind="virtualized-foreach: ListData, virtualized-foreach-options: { elementSize: 70, orientation: 'vertical' }">
+            <div class="card-vertical card">
+                <a data-bind="attr: { href: File }, text: Description" target="_blank"></a>
             </div>
         </div>
     </div>
 
-    <div class="virtualized-list-horizontal virtualized-list-custom">
-        <div data-bind="virtualized-foreach: GridData, virtualized-foreach-options: { elementSize: 100, orientation: 'horizontal' }">
-            <div class="card-horizontal card-custom">
-                <h1 data-bind="text: Id"></h1>
-                <p data-bind="text: FirstName() + ' ' + LastName()"></p>
-            </div>
-        </div>
-    </div>
-
-    <div style="height: 2000px;"></div>
-    
     <script type="text/javascript" src="scripts/virtualized-foreach.js"></script>
-    <script type="text/javascript" src="scripts/data.js"></script>
-
-<input type="button" value="Add new" onclick="testViewModel.GridData.push({ Id: ko.observable(testViewModel.GridData().length), FirstName: ko.observable('a'), LastName: ko.observable('b')});" />
-<input type="button" value="Delete half" onclick="testViewModel.GridData(testViewModel.GridData().slice(0, testViewModel.GridData().length / 2));" />
-<input type="button" value="Delete all" onclick="testViewModel.GridData([]);" />
-<input type="button" value="Replace array with object" onclick="testViewModel.GridData({});" />
+    <script type="text/javascript">
+        var viewModel = {
+            ListData: ko.observableArray([{
+                File: 'sample1.html',
+                Description: 'Virtualized list - element scrolling'
+            }, {
+                File: 'sample2.html',
+                Description: 'Virtualized table - standard'
+            }, {
+                File: 'sample3.html',
+                Description: 'Virtualized table with fixed header'
+            }, {
+                File: 'sample4.html',
+                Description: 'Virtualized vertical list - window scrolling'
+            }, {
+                File: 'sample5.html',
+                Description: 'Virtualized horizontal list - window scrolling'
+            }, {
+                File: 'sample6.html',
+                Description: 'Virtualized vertical list - element + window scrolling'
+            }, ])
+        };
+        ko.applyBindings(viewModel);
+    </script>
 </body>
+
 </html>

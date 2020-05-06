@@ -1,0 +1,50 @@
+/* Component styles */
+
+
+/* List */
+
+.virtualized-list-horizontal>div:after {
+    /* self-clear */
+    content: "";
+    clear: both;
+    display: table;
+}
+
+.card {
+    box-sizing: border-box;
+}
+
+.card-horizontal {
+    display: block;
+    float: left;
+}
+
+
+/* Table */
+
+.virtualized-table-header {
+    font-weight: bold;
+}
+
+.virtualized-table-row {
+    display: flex;
+}
+
+.virtualized-table-cell {
+    display: flex;
+    -ms-align-items: center;
+    -o-align-items: center;
+    -webkit-align-items: center;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+.virtualized-table-header {
+    font-weight: bold;
+}
+
+.virtualized-table-header .virtualized-table-cell {
+    -o-justify-content: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+}
