@@ -174,15 +174,15 @@ var VirtualizedScrollArea = /** @class */ (function () {
     function fixOutOfRangeScrollPosition(options, element, scrollArea) {
         var state = scrollArea.getState();
         var desiredSize = scrollArea.getDesiredSize();
-        if (state.scrollPosition > desiredSize) {
-            var endScrollPosition = desiredSize - state.visibleSize;
-            if (endScrollPosition < 0) {
-                endScrollPosition = 0;
+        var maxEndScrollPosition = desiredSize - state.visibleSize;
+        if (state.scrollPosition > maxEndScrollPosition) {
+            if (maxEndScrollPosition < 0) {
+                maxEndScrollPosition = 0;
             }
             if (options.enableLogging) {
-                console.warn("Scrolled out of range, autoscrolling to: " + endScrollPosition + ", " + element.parentElement.scrollTop);
+                console.warn("Scrolled out of range, autoscrolling to: " + maxEndScrollPosition + ", " + element.parentElement.scrollTop);
             }
-            scrollArea.fixScrollPosition(endScrollPosition);
+            scrollArea.fixScrollPosition(maxEndScrollPosition);
         }
     }
     function calculateArrayRange(options, scrollArea) {

@@ -224,17 +224,17 @@ class VirtualizedScrollArea {
         const state = scrollArea.getState();
         const desiredSize = scrollArea.getDesiredSize();
 
-        if (state.scrollPosition > desiredSize) {
-            let endScrollPosition = desiredSize - state.visibleSize;
-            if (endScrollPosition < 0) {
-                endScrollPosition = 0;
+        let maxEndScrollPosition = desiredSize - state.visibleSize;
+        if (state.scrollPosition > maxEndScrollPosition) {
+            if (maxEndScrollPosition < 0) {
+                maxEndScrollPosition = 0;
             }
 
             if (options.enableLogging) {
-                console.warn(`Scrolled out of range, autoscrolling to: ${endScrollPosition}, ${element.parentElement.scrollTop}`);
+                console.warn(`Scrolled out of range, autoscrolling to: ${maxEndScrollPosition}, ${element.parentElement.scrollTop}`);
             }
 
-            scrollArea.fixScrollPosition(endScrollPosition);            
+            scrollArea.fixScrollPosition(maxEndScrollPosition);            
         }
     }
 
