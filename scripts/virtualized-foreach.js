@@ -148,7 +148,8 @@ var VirtualizedScrollArea = /** @class */ (function () {
             bindHandlers(options, element, scrollArea);
             // create sub array and calculate paddings
             var visibleArray = ko.computed(function () {
-                var arrayRange = getVisibleSubArray(options, element, scrollArea);
+                fixOutOfRangeScrollPosition(options, element, scrollArea);
+                var arrayRange = getVisibleSubArrayRange(options, scrollArea);
                 setElementPaddings(options, element, arrayRange, scrollArea);
                 return array.slice(arrayRange.startIndex, arrayRange.endIndex + 1);
             });
@@ -158,12 +159,10 @@ var VirtualizedScrollArea = /** @class */ (function () {
             return foreachResult;
         }
     };
-    function getVisibleSubArray(options, element, scrollArea) {
+    function getVisibleSubArrayRange(options, scrollArea) {
         if (options.enableLogging) {
             console.log("Recalculating array (orientation=" + options.orientation + ")");
         }
-        // fix out-of-range scroll position
-        fixOutOfRangeScrollPosition(options, element, scrollArea);
         // calculate startIndex
         var arrayRange = calculateArrayRange(options, scrollArea);
         if (options.enableLogging) {
