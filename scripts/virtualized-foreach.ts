@@ -15,13 +15,13 @@ interface ScrollState {
     scrollPosition: number;
     windowScrollPosition: number;
     visibleSize: number;
-    windowSize: number;    
+    windowSize: number;
 }
 
 class VirtualizedScrollArea {
-    
+
     private state: KnockoutObservable<ScrollState>;
-    
+
     constructor(public arrayLength: number, public unitSize: number, private onFixScrollPosition: (number) => void) {
         this.state = ko.observable();
     }
@@ -32,7 +32,7 @@ class VirtualizedScrollArea {
 
     setState(newState: ScrollState) {
         this.state(newState);
-    }    
+    }
 
     getDesiredSize() {
         return this.arrayLength * this.unitSize;
@@ -58,7 +58,7 @@ class VirtualizedScrollArea {
             eventTarget.removeEventListener(eventName, existingHandler);
         }
     }
-    
+
     function removeSavedObjectById(storageElement: HTMLElement, id: string): any {
         let existingHandler = storageElement[id];
         storageElement[id] = undefined;
@@ -73,7 +73,7 @@ class VirtualizedScrollArea {
 
     function removeIntervalFromElementById(storageElement: HTMLElement, id: string): void {
         let existingInterval = removeSavedObjectById(storageElement, id);
-        if(existingInterval) {
+        if (existingInterval) {
             clearInterval(existingInterval)
         }
     }
@@ -153,8 +153,8 @@ class VirtualizedScrollArea {
             else if (Array.isArray(array.data())) {
                 return array.data();
             }
-        }   
-        catch {}
+        }
+        catch { }
         return null;
     }
 
@@ -188,8 +188,7 @@ class VirtualizedScrollArea {
             bindHandlers(options, element, scrollArea);
 
             // create sub array and calculate paddings
-            let visibleArray = ko.computed(() => 
-            {
+            let visibleArray = ko.computed(() => {
                 fixOutOfRangeScrollPosition(options, element, scrollArea);
                 var arrayRange = getVisibleSubArrayRange(options, scrollArea);
                 setElementPaddings(options, element, arrayRange, scrollArea);
@@ -234,16 +233,15 @@ class VirtualizedScrollArea {
                 console.warn(`Scrolled out of range, autoscrolling to: ${maxEndScrollPosition}, ${element.parentElement.scrollTop}`);
             }
 
-            scrollArea.fixScrollPosition(maxEndScrollPosition);            
+            scrollArea.fixScrollPosition(maxEndScrollPosition);
         }
     }
 
     function calculateArrayRange(options: VirtualizedForeachOptions, scrollArea: VirtualizedScrollArea) {
-        
         const overflowElementCount = options.overflowElementCount || 3;
         const overflowElementCountBegin = Math.floor(overflowElementCount / 2);
         const overflowElementCountEnd = overflowElementCount - overflowElementCountBegin;
-        
+
         const state = scrollArea.getState();
 
         let startPosition = state.scrollPosition;
